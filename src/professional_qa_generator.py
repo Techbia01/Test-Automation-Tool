@@ -10,6 +10,18 @@ from typing import List, Dict, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
+# Importar parser adaptativo
+try:
+    from .adaptive_parser import parse_user_story_adaptive, StoryStructureType
+except ImportError:
+    # Si falla el import relativo, intentar absoluto
+    try:
+        from src.adaptive_parser import parse_user_story_adaptive, StoryStructureType
+    except ImportError:
+        # Si no está disponible, usar None (fallback al método original)
+        parse_user_story_adaptive = None
+        StoryStructureType = None
+
 
 class TestPriority(Enum):
     """Prioridad de los casos de prueba"""
@@ -135,11 +147,43 @@ class ProfessionalQAGenerator:
         Extrae criterios de aceptación del texto de forma ULTRA ROBUSTA
         Funciona con CUALQUIER formato: FIN, EMS, OPS, AIA, etc.
         Especialmente diseñado para HUs técnicas complejas con código y ejemplos.
+        
+        Ahora usa parser adaptativo que detecta automáticamente el tipo de estructura.
         """
         criteria = []
         
         print("[INFO] Iniciando extracción de criterios...", flush=True)
         print(f"[INFO] Tamaño del texto: {len(text)} caracteres", flush=True)
+        
+        # PASO 0: Intentar usar parser adaptativo (si está disponible)
+        if parse_user_story_adaptive is not None:
+            try:
+                print("[INFO] Usando parser adaptativo para detectar estructura...", flush=True)
+                parsed_story = parse_user_story_adaptive(text)
+                
+                print(f"[INFO] Estructura detectada: {parsed_story.structure_type.value}", flush=True)
+                
+                # Si es estructura narrativa o mixta, usar los criterios del parser adaptativo
+                if parsed_story.structure_type in [StoryStructureType.NARRATIVE, StoryStructureType.MIXED]:
+                    criteria = parsed_story.acceptance_criteria
+                    if criteria:
+                        print(f"[OK] {len(criteria)} criterios extraídos con parser adaptativo (narrativo/mixto)", flush=True)
+                        # Complementar con análisis técnico si hay pocos criterios
+                        if len(criteria) < 5:
+                            print("[INFO] Complementando con análisis técnico...", flush=True)
+                            technical_criteria = self._extract_technical_requirements(text)
+                            criteria.extend(technical_criteria)
+                        return criteria
+                # Si es tradicional, continuar con el método original (más robusto para ese formato)
+                elif parsed_story.structure_type == StoryStructureType.TRADITIONAL:
+                    print("[INFO] Estructura tradicional detectada, usando método robusto original...", flush=True)
+                    # Continuar con el método original (más abajo)
+                else:
+                    print("[INFO] Estructura desconocida, usando método robusto original...", flush=True)
+                    # Continuar con el método original
+            except Exception as e:
+                print(f"[WARN] Error en parser adaptativo, usando método original: {e}", flush=True)
+                # Continuar con el método original
         
         # PASO 0: Limpiar el texto de ruido (código JSON, URLs, etc.)
         cleaned_text = self._clean_technical_noise(text)
