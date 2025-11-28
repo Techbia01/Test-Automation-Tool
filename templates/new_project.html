@@ -282,6 +282,27 @@ function validarCalidadHU() {
             criteriaFormats.push('numeración');
         }
         
+        // Buscar condiciones con letras (a), (b), (c) - formato narrativo/EMS
+        const letteredConditions = huText.match(/\([a-z]\)\s+.{10,}/gi);
+        if (letteredConditions && letteredConditions.length > 0) {
+            criteriaCount += letteredConditions.length;
+            criteriaFormats.push('condiciones con letras');
+        }
+        
+        // Buscar frases condicionales narrativas (Si el usuario, Al darle, etc.)
+        const conditionalPhrases = huText.match(/(?:Si|Cuando|Al)\s+(?:el\s+)?(?:usuario|user|darle|dar|hacer|crear|editar|seleccionar)[^\.]+\./gi);
+        if (conditionalPhrases && conditionalPhrases.length > 0) {
+            criteriaCount += conditionalPhrases.length;
+            criteriaFormats.push('frases condicionales');
+        }
+        
+        // Buscar descripciones de comportamiento UI
+        const uiBehaviorPhrases = huText.match(/(?:mostrar|ocultar|crear|editar|seleccionar|aparece|sale)\s+[^\.]+(?:botón|boton|button|campo|field|modal|popup|pop-up|grupo|sedes)[^\.]*\./gi);
+        if (uiBehaviorPhrases && uiBehaviorPhrases.length > 0) {
+            criteriaCount += uiBehaviorPhrases.length;
+            criteriaFormats.push('comportamiento UI');
+        }
+        
         // Buscar formato Gherkin (Given/When/Then o Dado/Cuando/Entonces)
         const gherkinMatches = huText.match(/(?:Given|Dado|When|Cuando|Then|Entonces)\s+.{10,}/gi);
         if (gherkinMatches && gherkinMatches.length > 0) {
@@ -313,8 +334,19 @@ function validarCalidadHU() {
             score += 10;
             warnings.push(`⚠️ Solo ${criteriaCount} criterio(s) detectado(s) - Recomendado: 5-15`);
         } else {
-            warnings.push(`❌ No se detectaron criterios de aceptación claros`);
-            tips.push('Agrega criterios usando: ✅, bullets (-), numeración (1.) o formato Gherkin');
+            // Verificar si tiene estructura narrativa aunque no tenga criterios explícitos
+            const hasNarrativeStructure = /(?:Si|Cuando|Al)\s+(?:el\s+)?(?:usuario|user|darle|dar|hacer|crear|editar|seleccionar)/i.test(huText) ||
+                                         /\([a-z]\)\s+/i.test(huText) ||
+                                         /(?:mostrar|ocultar|crear|editar|seleccionar)\s+[^\.]+(?:botón|boton|button|campo|field|modal|popup)/i.test(huText);
+            
+            if (hasNarrativeStructure) {
+                warnings.push(`ℹ️ Se detectó estructura narrativa. El sistema extraerá criterios automáticamente de las condiciones y flujos descritos.`);
+                score += 10; // Bonus por tener estructura narrativa
+                tips.push('El sistema detectará automáticamente criterios de condiciones (a), (b), (c) y flujos de usuario');
+            } else {
+                warnings.push(`❌ No se detectaron criterios de aceptación claros`);
+                tips.push('Agrega criterios usando: ✅, bullets (-), numeración (1.), condiciones con letras (a), (b), (c), o formato Gherkin');
+            }
         }
         
         // 3. DETECCIÓN DE CONTEXTO/DESCRIPCIÓN
