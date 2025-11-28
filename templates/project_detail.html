@@ -1,0 +1,868 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - Sistema QA{% endblock %}
+
+{% block content %}
+<!-- Diseño en dos columnas inspirado en la imagen -->
+<div class="row g-4">
+    <!-- COLUMNA IZQUIERDA -->
+    <div class="col-lg-6">
+        <!-- Información del Proyecto -->
+        <div class="card shadow-sm mb-4" style="border-radius: 16px;">
+            <div class="card-body p-4">
+                <h5 class="mb-4" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-info-circle"></i>
+                    </span>
+                    <strong>Información del Proyecto</strong>
+                </h5>
+                
+                <!-- Creado -->
+                <div class="mb-3 pb-3" style="border-bottom: 1px solid #e2e8f0;">
+                    <div class="text-muted small mb-1" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">CREADO</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <strong style="font-size: 1.1rem;">{{ project.created_at[:10] }}</strong>
+                        <span class="badge" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); font-size: 0.7rem;">Proyecto iniciado</span>
+                    </div>
+                </div>
+                
+                <!-- ID -->
+                <div class="mb-3 pb-3" style="border-bottom: 1px solid #e2e8f0;">
+                    <div class="text-muted small mb-1" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">ID</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="font-family: 'Courier New', monospace; color: #6366f1; font-weight: 600; font-size: 0.9rem; word-break: break-all;">
+                            {{ project.id }}
+                        </div>
+                        <button class="btn btn-sm" onclick="copiarAlPortapapeles('{{ project.id }}')" style="background: #ede9fe; border: none; color: #6366f1; padding: 0.25rem 0.5rem; border-radius: 6px;" title="Copiar ID">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Identificador único</small>
+                </div>
+                
+                <!-- HU LINEAR -->
+                <div class="mb-0">
+                    <div class="text-muted small mb-2" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">HU LINEAR</div>
+                    <div class="input-group">
+                        <span class="input-group-text" style="background: #f1f5f9; border: 2px solid #e2e8f0;">
+                            <i class="fas fa-link" style="color: #6366f1;"></i>
+                        </span>
+                        <input type="text" 
+                               class="form-control" 
+                               id="huIdInput" 
+                               value="{{ project.linear_hu_id or '' }}" 
+                               placeholder="Ej: FIN-1262, TEC-456"
+                               style="border: 2px solid #e2e8f0; font-family: 'Courier New', monospace;">
+                        <button class="btn" onclick="guardarHuId('{{ project.id }}')" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: white; border: none; border-radius: 0 8px 8px 0;">
+                            <i class="fas fa-save me-1"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted mt-1 d-block">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Ingresa el ID de la Historia de Usuario en Linear
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Historia de Usuario -->
+        <div class="card shadow-sm" style="border-radius: 16px;">
+            <div class="card-body p-4">
+                <h5 class="mb-4" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-book"></i>
+                    </span>
+                    <strong>Historia de Usuario</strong>
+                </h5>
+                
+                <div class="p-3" style="background: #f8fafc; border-radius: 12px; border-left: 4px solid #6366f1; max-height: 400px; overflow-y: auto; font-size: 0.95rem; line-height: 1.8; white-space: pre-wrap;">{{ project.user_story }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- COLUMNA DERECHA -->
+    <div class="col-lg-6">
+        <!-- Exportar Casos de Prueba -->
+        <div class="card shadow-sm mb-4" style="border-radius: 16px;">
+            <div class="card-body p-4">
+                <h5 class="mb-4" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-chart-bar"></i>
+                    </span>
+                    <strong>Exportar Casos de Prueba</strong>
+                </h5>
+                
+                {% if project.test_cases %}
+                    <div class="d-grid gap-3">
+                        <!-- Botón Descargar CSV -->
+                        <button class="btn btn-lg" onclick="descargarCSV('{{ project.id }}', '{{ project.linear_hu_id }}')" 
+                                style="background: linear-gradient(135deg, #10d9c4 0%, #0ea5a5 100%); color: white; border: none; border-radius: 12px; padding: 1rem; font-weight: 600; box-shadow: 0 4px 12px rgba(16, 217, 196, 0.3);">
+                            <i class="fas fa-download me-2"></i>Descargar CSV Linear
+                        </button>
+                        
+                        <!-- Botón Subir a Linear -->
+                        <button class="btn btn-lg" onclick="abrirModalLinear('{{ project.id }}', '{{ project.linear_hu_id }}')" 
+                                style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: white; border: none; border-radius: 12px; padding: 1rem; font-weight: 600; box-shadow: 0 4px 12px rgba(76, 29, 149, 0.3);">
+                            <i class="fas fa-arrow-right me-2"></i>Subir Directo a Linear
+                        </button>
+                    </div>
+                    
+                    <div class="mt-3 p-3" style="background: rgba(16, 217, 196, 0.1); border-radius: 10px; border: 1px solid rgba(16, 217, 196, 0.3);">
+                        <small class="d-block mb-1" style="font-weight: 600; color: #10d9c4;">
+                            <i class="fas fa-info-circle me-1"></i>Tip:
+                        </small>
+                        <small class="text-muted">
+                            Los casos de prueba se generarán automáticamente basados en la Historia de Usuario ingresada.
+                        </small>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-exclamation-circle text-muted" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p class="text-muted mt-3 mb-0">Primero genera casos de prueba para poder exportarlos.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Flujo del Proceso -->
+        <div class="card shadow-sm" style="border-radius: 16px;">
+            <div class="card-body p-4">
+                <h5 class="mb-4" style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.95rem;">FLUJO DEL PROCESO</h5>
+                
+                <div class="d-flex flex-column gap-3">
+                    <!-- Paso 1 -->
+                    <div class="d-flex align-items-center gap-3 p-3" style="background: rgba(99, 102, 241, 0.1); border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
+                        <div style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div>
+                            <strong style="font-size: 0.95rem;">Validar entrada</strong>
+                        </div>
+                    </div>
+                    
+                    <!-- Paso 2 -->
+                    <div class="d-flex align-items-center gap-3 p-3" style="background: rgba(99, 102, 241, 0.1); border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
+                        <div style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div>
+                            <strong style="font-size: 0.95rem;">Generar casos</strong>
+                        </div>
+                    </div>
+                    
+                    <!-- Paso 3 -->
+                    <div class="d-flex align-items-center gap-3 p-3" style="background: rgba(99, 102, 241, 0.1); border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
+                        <div style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div>
+                            <strong style="font-size: 0.95rem;">Exportar resultado</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    
+<!-- Generar Casos de Prueba -->
+{% if not project.test_cases %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0">
+                    <i class="fas fa-magic me-2"></i>Generar Casos de Prueba
+                </h4>
+            </div>
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-robot fa-3x text-warning mb-3"></i>
+                    <p class="text-muted mb-4">Utiliza inteligencia artificial para generar casos de prueba basados en la historia de usuario.</p>
+                </div>
+                <button class="btn btn-warning btn-lg px-5" onclick="generarCasos('{{ project.id }}')">
+                    <i class="fas fa-cogs me-2"></i>Generar Casos de Prueba con IA
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+<!-- Casos de Prueba Generados -->
+{% if project.test_cases %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light border-bottom">
+                <h4 class="mb-0 text-dark">
+                    <i class="fas fa-list-check me-2 text-success"></i>Casos de Prueba Generados ({{ project.test_cases|length }})
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% for test_case in project.test_cases %}
+                    <div class="col-xxl-3 col-xl-4 col-lg-6 mb-3">
+                        <div class="card test-case-card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <span class="badge bg-secondary me-2">{{ test_case.id }}</span>
+                                    {{ test_case.title }}
+                                </h6>
+                                
+                                <p class="card-text text-muted small">{{ test_case.description[:150] }}{% if test_case.description|length > 150 %}...{% endif %}</p>
+                                
+                                <div class="mb-3">
+                                    <span class="badge bg-{{ 'danger' if test_case.priority == 'Alta' else 'warning' if test_case.priority == 'Media' else 'secondary' }}">
+                                        <i class="fas fa-flag"></i> {{ test_case.priority }}
+                                    </span>
+                                    <span class="badge bg-info">
+                                        <i class="fas fa-tag"></i> {{ test_case.test_type }}
+                                    </span>
+                                </div>
+                                
+                                <!-- Botones de acción -->
+                                <div class="mt-3 d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editarCaso('{{ project.id }}', '{{ test_case.id }}')">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarCaso('{{ project.id }}', '{{ test_case.id }}', '{{ test_case.title }}')">
+                                        <i class="fas fa-trash"></i> Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// FUNCIONES LIMPIAS Y SIMPLES - SIN DUPLICADOS
+// ============================================================================
+
+// FUNCIÓN 0: GUARDAR HU ID
+function guardarHuId(projectId) {
+    const huId = document.getElementById('huIdInput').value.trim();
+    
+    if (!huId) {
+        showAlert('❌ Debes ingresar un HU ID válido', 'error');
+        return;
+    }
+    
+    console.log('💾 Guardando HU ID:', huId);
+    
+    // Guardar en el backend
+    fetch(`/update_project/${projectId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ linear_hu_id: huId })
+    })
+    .then(response => response.json())
+    .then(data => {
+            if (data.success) {
+            showAlert('✅ HU ID guardado exitosamente', 'success');
+            // Recargar página para actualizar botones
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showAlert('❌ Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showAlert('❌ Error: ' + error.message, 'error');
+    });
+}
+
+// FUNCIÓN 1: GENERAR CASOS DE PRUEBA
+function generarCasos(projectId) {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generando...';
+    
+    fetch('/generate_test_cases', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ project_id: projectId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('✅ ¡Casos generados exitosamente!', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showAlert('❌ Error: ' + data.error, 'error');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        showAlert('❌ Error de conexión: ' + error.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+// FUNCIÓN 2: DESCARGAR CSV
+function descargarCSV(projectId, linearHuId) {
+    console.log('📥 Descargando CSV...', { projectId, linearHuId });
+    
+    if (!linearHuId || linearHuId === 'None') {
+        showAlert('❌ No hay HU ID configurado', 'error');
+        return;
+    }
+    
+    const url = `/export_linear_subissues/${projectId}?parent_id=${encodeURIComponent(linearHuId)}`;
+    window.location.href = url;
+    
+    showAlert('📄 Descargando CSV...', 'success');
+}
+
+// FUNCIÓN 3: ABRIR MODAL PARA SUBIR A LINEAR
+function abrirModalLinear(projectId, linearHuId) {
+    console.log('🚀 Abriendo modal Linear...', { projectId, linearHuId });
+    
+    if (!linearHuId || linearHuId === 'None') {
+        showAlert('❌ Este proyecto no tiene HU ID configurado', 'error');
+        return;
+    }
+    
+    // Crear modal
+    const modalHTML = `
+        <div class="modal fade" id="modalLinear" tabindex="-1">
+            <div class="modal-dialog">
+        <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title">
+                            <i class="fas fa-rocket"></i> Subir Casos a Linear
+                        </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                        <div class="alert alert-info">
+                            <strong>📋 Configuración:</strong>
+                            <ul class="mt-2 mb-0">
+                                <li>🎯 HU: <strong>${linearHuId}</strong></li>
+                                <li>🏢 Equipo: Auto-detectado</li>
+                                <li>⚡ Subida directa via API</li>
+                </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                            <label for="apiKeyInput" class="form-label">
+                                <i class="fas fa-key"></i> API Key de Linear
+                            </label>
+                            <input type="password" class="form-control" id="apiKeyInput" 
+                                   placeholder="lin_api_xxxxxxxxxxxxxxxxxxxxxxxx" required>
+                            <small class="form-text text-muted">
+                                Obtén tu API Key en: Linear → Settings → API
+                            </small>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="guardarApiKeyCheck" checked>
+                                <label class="form-check-label small" for="guardarApiKeyCheck">
+                                    <i class="fas fa-save"></i> Guardar API Key para próximas veces
+                                </label>
+                    </div>
+                    </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-warning" onclick="subirALinear('${projectId}', '${linearHuId}')">
+                            <i class="fas fa-upload"></i> Subir Ahora
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+    `;
+    
+    // Limpiar modal anterior
+    const existingModal = document.getElementById('modalLinear');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Agregar y mostrar modal
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const modal = new bootstrap.Modal(document.getElementById('modalLinear'));
+    modal.show();
+    
+    // Cargar API Key guardada si existe
+    const savedApiKey = localStorage.getItem('linear_api_key');
+    if (savedApiKey) {
+        document.getElementById('apiKeyInput').value = savedApiKey;
+    }
+}
+
+// FUNCIÓN 4: SUBIR A LINEAR (LA IMPORTANTE)
+async function subirALinear(projectId, linearHuId) {
+    console.log('🚀 Iniciando subida a Linear...', { projectId, linearHuId });
+    
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+    
+    if (!apiKey) {
+        showAlert('❌ Debes ingresar la API Key', 'error');
+        return;
+    }
+    
+    // Guardar API Key si el checkbox está marcado
+    const guardarApiKey = document.getElementById('guardarApiKeyCheck').checked;
+    if (guardarApiKey) {
+        localStorage.setItem('linear_api_key', apiKey);
+        console.log('✅ API Key guardada localmente');
+    }
+    
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Subiendo...';
+    
+    try {
+        console.log('📡 Enviando petición POST a /upload_to_linear/' + projectId);
+        
+        const response = await fetch(`/upload_to_linear/${projectId}`, {
+            method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+            body: JSON.stringify({
+                api_key: apiKey,
+                parent_issue_id: linearHuId
+            })
+        });
+        
+        console.log('📊 Status:', response.status);
+        
+        const result = await response.json();
+        console.log('📋 Resultado:', result);
+        
+        if (response.ok && result.success) {
+            showAlert('🎉 ¡ÉXITO! ' + result.message, 'success');
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalLinear'));
+            modal.hide();
+            
+            // Mostrar detalles
+            if (result.created_issues && result.created_issues.length > 0) {
+                console.log('✅ Issues creados:', result.created_issues);
+            }
+        } else {
+            showAlert('❌ Error: ' + (result.error || 'Error desconocido'), 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+        showAlert('❌ Error de conexión: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+// FUNCIÓN AUXILIAR: MOSTRAR ALERTAS
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+    alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+        alertDiv.remove();
+        }, 5000);
+}
+
+// FUNCIÓN 5: ELIMINAR CASO DE PRUEBA
+function eliminarCaso(projectId, testCaseId, testCaseTitle) {
+    // Crear modal de confirmación elegante
+    const modalHTML = `
+        <div class="modal fade" id="modalEliminarCaso" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-file-alt fa-3x text-danger"></i>
+                        </div>
+                        <h6 class="text-center mb-3">¿Estás seguro de eliminar este caso de prueba?</h6>
+                        <div class="alert alert-warning">
+                            <strong>ID:</strong> ${testCaseId}<br>
+                            <strong>Título:</strong> ${testCaseTitle}
+                        </div>
+                        <p class="text-muted small text-center">
+                            <i class="fas fa-info-circle"></i> 
+                            Esta acción no se puede deshacer
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="confirmarEliminacionCaso('${projectId}', '${testCaseId}')">
+                            <i class="fas fa-trash"></i> Eliminar Caso
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Limpiar modal anterior si existe
+    const existingModal = document.getElementById('modalEliminarCaso');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Agregar y mostrar modal
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const modal = new bootstrap.Modal(document.getElementById('modalEliminarCaso'));
+    modal.show();
+}
+
+function confirmarEliminacionCaso(projectId, testCaseId) {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalEliminarCaso'));
+    modal.hide();
+    
+    // Mostrar loading
+    showAlert('<i class="fas fa-spinner fa-spin"></i> Eliminando caso...', 'info');
+    
+    fetch(`/api/project/${projectId}/test_case/${testCaseId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(`<i class="fas fa-check-circle"></i> Caso eliminado. Quedan ${data.remaining_count} casos.`, 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showAlert('<i class="fas fa-times-circle"></i> Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('<i class="fas fa-exclamation-triangle"></i> Error: ' + error.message, 'danger');
+    });
+}
+
+// FUNCIÓN 6: EDITAR CASO DE PRUEBA
+function editarCaso(projectId, testCaseId) {
+    console.log('📝 Abriendo modal de edición para:', testCaseId);
+    
+    // Crear modal de edición elegante
+    const modalHTML = `
+        <div class="modal fade" id="modalEditarCaso" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: white; border-radius: 16px 16px 0 0;">
+                        <h5 class="modal-title">
+                            <i class="fas fa-edit"></i> Editar Caso de Prueba
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="alert" style="background: rgba(99, 102, 241, 0.1); border-left: 4px solid #6366f1; border-radius: 8px;">
+                            <i class="fas fa-info-circle" style="color: #6366f1;"></i> 
+                            <strong style="color: #4c1d95;">Editando:</strong> <code style="background: white; padding: 0.25rem 0.5rem; border-radius: 4px; color: #6366f1;">${testCaseId}</code>
+                        </div>
+                        
+                        <div class="text-center py-3">
+                            <div class="spinner-border" style="color: #6366f1;" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Cargando datos del caso de prueba...</p>
+                        </div>
+                        
+                        <div id="formEditarCaso" style="display: none;">
+                            <div class="mb-3">
+                                <label for="editTitle" class="form-label fw-bold">
+                                    <i class="fas fa-heading" style="color: #6366f1;"></i> TÍTULO *
+                                </label>
+                                <input type="text" class="form-control" id="editTitle" placeholder="Título del caso de prueba" required style="border: 2px solid #e2e8f0; border-radius: 8px;">
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="editPriority" class="form-label fw-bold">
+                                        <i class="fas fa-flag" style="color: #6366f1;"></i> PRIORIDAD *
+                                    </label>
+                                    <select class="form-select" id="editPriority" style="border: 2px solid #e2e8f0; border-radius: 8px;">
+                                        <option value="Alta">🔴 Alta</option>
+                                        <option value="Media">🟡 Media</option>
+                                        <option value="Baja">🟢 Baja</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="editType" class="form-label fw-bold">
+                                        <i class="fas fa-tag" style="color: #6366f1;"></i> TIPO *
+                                    </label>
+                                    <select class="form-select" id="editType" style="border: 2px solid #e2e8f0; border-radius: 8px;">
+                                        <option value="Funcional">Funcional</option>
+                                        <option value="Integración">Integración</option>
+                                        <option value="Negativo">Negativo</option>
+                                        <option value="UI">UI</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- ESTRUCTURA GHERKIN -->
+                            <div class="mb-3">
+                                <label for="editObjective" class="form-label fw-bold">
+                                    <i class="fas fa-bullseye" style="color: #6366f1;"></i> 🎯 OBJETIVO
+                                </label>
+                                <textarea class="form-control" id="editObjective" rows="2" placeholder="**Objetivo:** Describir qué se quiere verificar..." style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editCriteria" class="form-label fw-bold">
+                                    <i class="fas fa-clipboard-check" style="color: #6366f1;"></i> 📋 CRITERIO DE ACEPTACIÓN
+                                </label>
+                                <textarea class="form-control" id="editCriteria" rows="2" placeholder="**Criterio:** Condiciones que debe cumplir..." style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editPreconditions" class="form-label fw-bold">
+                                    <i class="fas fa-cog" style="color: #6366f1;"></i> ⚙️ PRECONDICIONES
+                                </label>
+                                <textarea class="form-control" id="editPreconditions" rows="2" placeholder="**Precondiciones:**&#10;- Usuario autenticado&#10;- Sistema inicializado" style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editSteps" class="form-label fw-bold">
+                                    <i class="fas fa-list-ol" style="color: #6366f1;"></i> 🔢 PASOS
+                                </label>
+                                <textarea class="form-control" id="editSteps" rows="4" placeholder="**Pasos:**&#10;1. DADO que el usuario está en la página de login&#10;2. CUANDO ingresa sus credenciales&#10;3. Y presiona el botón 'Iniciar sesión'&#10;4. ENTONCES debe ver el dashboard" style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editExpectedResult" class="form-label fw-bold">
+                                    <i class="fas fa-check-circle" style="color: #10d9c4;"></i> ✅ RESULTADO ESPERADO
+                                </label>
+                                <textarea class="form-control" id="editExpectedResult" rows="2" placeholder="**Resultado Esperado:**&#10;El sistema debe mostrar..." style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="background: #f8fafc; border-radius: 0 0 16px 16px;">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 8px;">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btnGuardarEdicion" onclick="guardarEdicion('${projectId}', '${testCaseId}')" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); border: none; border-radius: 8px;">
+                            <i class="fas fa-save"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Limpiar modal anterior
+    const existingModal = document.getElementById('modalEditarCaso');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Agregar modal al DOM
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const modal = new bootstrap.Modal(document.getElementById('modalEditarCaso'));
+    modal.show();
+    
+    // 🔥 CARGAR DATOS DEL CASO DE PRUEBA
+    fetch(`/api/project/${projectId}/test_case/${testCaseId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const testCase = data.test_case;
+                console.log('✅ Datos cargados:', testCase);
+                
+                // Llenar formulario con los datos
+                document.getElementById('editTitle').value = testCase.title || '';
+                document.getElementById('editPriority').value = testCase.priority || 'Media';
+                document.getElementById('editType').value = testCase.test_type || 'Funcional';
+                
+                // 🔥 PARSEAR DESCRIPCIÓN EN FORMATO GHERKIN
+                const description = testCase.description || '';
+                console.log('📄 Descripción completa:', description);
+                console.log('📦 Test case completo:', testCase);
+                
+                // Intentar extraer secciones usando regex con múltiples variantes
+                // Añadimos más flexibilidad para capturar con saltos de línea
+                const objectiveMatch = description.match(/\*\*(?:Objetivo|Objective):\*\*\s*(.*?)(?=\n\s*\*\*|$)/si);
+                const criteriaMatch = description.match(/\*\*(?:Criterio|Criterion):\*\*\s*(.*?)(?=\n\s*\*\*|$)/si);
+                const preconditionsMatch = description.match(/\*\*(?:Precondiciones|Preconditions):\*\*\s*(.*?)(?=\n\s*\*\*|$)/si);
+                const stepsMatch = description.match(/\*\*(?:Pasos|Steps):\*\*\s*(.*?)(?=\n\s*\*\*|$)/si);
+                const resultMatch = description.match(/\*\*(?:Resultado Esperado|Expected Result|Resultado):\*\*\s*(.*?)$/si);
+                
+                // Buscar también por patterns de Gherkin (@funcional, Scenario:, etc.)
+                const scenarioMatch = description.match(/Scenario:\s*(.*?)(?=@|$)/si);
+                
+                // Debug de matches
+                console.log('🎯 Objetivo:', objectiveMatch);
+                console.log('📋 Criterio:', criteriaMatch);
+                console.log('⚙️ Precondiciones:', preconditionsMatch);
+                console.log('🔢 Pasos:', stepsMatch);
+                console.log('✅ Resultado:', resultMatch);
+                
+                // Llenar los campos con prioridad: matches > campos individuales > descripción completa
+                let objective = objectiveMatch ? objectiveMatch[1].trim() : '';
+                let criteria = criteriaMatch ? criteriaMatch[1].trim() : '';
+                let preconditions = preconditionsMatch ? preconditionsMatch[1].trim() : (testCase.preconditions || '');
+                let steps = stepsMatch ? stepsMatch[1].trim() : (testCase.steps || '');
+                let expectedResult = resultMatch ? resultMatch[1].trim() : (testCase.expected_result || '');
+                
+                // Si no hay estructura, intentar usar la descripción completa de forma inteligente
+                if (!objective && !criteria && description) {
+                    // Extraer scenario si existe
+                    if (scenarioMatch) {
+                        objective = scenarioMatch[1].trim();
+                        // El resto va a la descripción
+                        const remaining = description.replace(scenarioMatch[0], '').trim();
+                        if (remaining && !steps) {
+                            steps = remaining;
+                        }
+                    } else {
+                        // Poner toda la descripción como "pasos" ya que suele ser el contenido principal
+                        steps = description;
+                    }
+                }
+                
+                // Si expected_result está vacío pero hay contenido después de ciertos keywords
+                if (!expectedResult && description.includes('@funcional')) {
+                    const afterTag = description.split('@funcional')[0].trim();
+                    if (afterTag) {
+                        objective = afterTag.split('Scenario:').pop().trim();
+                    }
+                }
+                
+                document.getElementById('editObjective').value = objective;
+                document.getElementById('editCriteria').value = criteria;
+                document.getElementById('editPreconditions').value = preconditions;
+                document.getElementById('editSteps').value = steps;
+                document.getElementById('editExpectedResult').value = expectedResult;
+                
+                console.log('✅ Campos llenados correctamente');
+                
+                // Mostrar formulario y ocultar spinner
+                document.querySelector('.spinner-border').parentElement.style.display = 'none';
+                document.getElementById('formEditarCaso').style.display = 'block';
+            } else {
+                showAlert('❌ Error al cargar datos: ' + data.error, 'danger');
+                modal.hide();
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error:', error);
+            showAlert('❌ Error al cargar el caso de prueba: ' + error.message, 'danger');
+            modal.hide();
+        });
+}
+
+// FUNCIÓN 7: GUARDAR EDICIÓN
+function guardarEdicion(projectId, testCaseId) {
+    const title = document.getElementById('editTitle').value.trim();
+    
+    // Validación
+    if (!title) {
+        showAlert('<i class="fas fa-exclamation-triangle"></i> El título es obligatorio', 'warning');
+        return;
+    }
+    
+    // 🔥 CONSTRUIR DESCRIPCIÓN ESTRUCTURADA EN FORMATO GHERKIN
+    const objective = document.getElementById('editObjective').value.trim();
+    const criteria = document.getElementById('editCriteria').value.trim();
+    const preconditions = document.getElementById('editPreconditions').value.trim();
+    const steps = document.getElementById('editSteps').value.trim();
+    const expectedResult = document.getElementById('editExpectedResult').value.trim();
+    
+    // Construir descripción formateada
+    let description = '';
+    if (objective) description += `**Objetivo:** ${objective}\n\n`;
+    if (criteria) description += `**Criterio:** ${criteria}\n\n`;
+    if (preconditions) description += `**Precondiciones:**\n${preconditions}\n\n`;
+    if (steps) description += `**Pasos:**\n${steps}\n\n`;
+    if (expectedResult) description += `**Resultado Esperado:**\n${expectedResult}`;
+    
+    const updatedData = {
+        title: title,
+        priority: document.getElementById('editPriority').value,
+        test_type: document.getElementById('editType').value,
+        description: description,
+        preconditions: preconditions,
+        steps: steps,
+        expected_result: expectedResult
+    };
+    
+    console.log('💾 Guardando datos estructurados:', updatedData);
+    
+    // Cerrar modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalEditarCaso'));
+    modal.hide();
+    
+    // Mostrar loading
+    showAlert('<i class="fas fa-spinner fa-spin"></i> Guardando cambios...', 'info');
+    
+    fetch(`/api/project/${projectId}/test_case/${testCaseId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatedData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('<i class="fas fa-check-circle"></i> ✅ Caso actualizado con estructura Gherkin', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showAlert('<i class="fas fa-times-circle"></i> Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('<i class="fas fa-exclamation-triangle"></i> Error: ' + error.message, 'danger');
+    });
+}
+
+// FUNCIÓN AUXILIAR: COPIAR AL PORTAPAPELES
+function copiarAlPortapapeles(texto) {
+    navigator.clipboard.writeText(texto).then(() => {
+        showAlert('✅ ID copiado al portapapeles', 'success');
+    }).catch(err => {
+        // Fallback para navegadores antiguos
+        const textarea = document.createElement('textarea');
+        textarea.value = texto;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showAlert('✅ ID copiado al portapapeles', 'success');
+    });
+}
+
+console.log('✅ Sistema QA cargado correctamente');
+</script>
+
+{% endblock %}

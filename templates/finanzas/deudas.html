@@ -1,0 +1,241 @@
+{% extends "finanzas/base.html" %}
+
+{% block title %}Deudas - Mis Finanzas{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">💳 Gestión de Deudas</h1>
+    <button class="btn btn-warning" onclick="showAddModal()">➕ Nueva Deuda</button>
+</div>
+
+<div class="deudas-grid">
+    {% if deudas %}
+        {% for deuda in deudas %}
+        <div class="deuda-card {% if deuda.estado == 'pagada' %}deuda-pagada{% endif %}">
+            <div class="deuda-header">
+                <h3>{{ deuda.acreedor }}</h3>
+                <span class="deuda-estado {{ deuda.estado }}">
+                    {% if deuda.estado == 'pagada' %}✅ Pagada{% else %}⏳ Activa{% endif %}
+                </span>
+            </div>
+            <div class="deuda-body">
+                <div class="deuda-montos">
+                    <div class="monto-info">
+                        <span class="label">Monto Total:</span>
+                        <span class="value">${{ "%.2f"|format(deuda.monto_total) }}</span>
+                    </div>
+                    <div class="monto-info">
+                        <span class="label">Pagado:</span>
+                        <span class="value pagado">${{ "%.2f"|format(deuda.monto_pagado) }}</span>
+                    </div>
+                    <div class="monto-info pendiente">
+                        <span class="label">Pendiente:</span>
+                        <span class="value">${{ "%.2f"|format(deuda.monto_total - deuda.monto_pagado) }}</span>
+                    </div>
+                </div>
+                
+                {% set porcentaje = (deuda.monto_pagado / deuda.monto_total * 100) if deuda.monto_total > 0 else 0 %}
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ porcentaje }}%"></div>
+                </div>
+                <div class="progress-text">{{ "%.1f"|format(porcentaje) }}% pagado</div>
+                
+                <div class="deuda-details">
+                    <div class="detail-item">
+                        <span class="icon">📅</span>
+                        <span>Inicio: {{ deuda.fecha_inicio }}</span>
+                    </div>
+                    {% if deuda.fecha_limite %}
+                    <div class="detail-item">
+                        <span class="icon">⏰</span>
+                        <span>Límite: {{ deuda.fecha_limite }}</span>
+                    </div>
+                    {% endif %}
+                    {% if deuda.interes > 0 %}
+                    <div class="detail-item">
+                        <span class="icon">📈</span>
+                        <span>Interés: {{ deuda.interes }}%</span>
+                    </div>
+                    {% endif %}
+                    {% if deuda.notas %}
+                    <div class="detail-item">
+                        <span class="icon">📝</span>
+                        <span>{{ deuda.notas }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="deuda-footer">
+                {% if deuda.estado == 'activa' %}
+                <button class="btn btn-sm btn-success" onclick="showPaymentModal({{ deuda.id }}, '{{ deuda.acreedor }}')">
+                    💵 Registrar Pago
+                </button>
+                {% endif %}
+                <button class="btn btn-sm btn-danger" onclick="deleteDeuda({{ deuda.id }})">
+                    🗑️ Eliminar
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <p class="empty-message">No hay deudas registradas. ¡Mantén tu historial actualizado!</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal para agregar deuda -->
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>➕ Nueva Deuda</h2>
+            <button class="modal-close" onclick="closeAddModal()">&times;</button>
+        </div>
+        <form id="deudaForm" onsubmit="submitDeuda(event)">
+            <div class="form-group">
+                <label>Acreedor / Entidad *</label>
+                <input type="text" name="acreedor" placeholder="Ej: Banco, Familiar, Empresa" required>
+            </div>
+            <div class="form-group">
+                <label>Monto Total *</label>
+                <input type="number" name="monto_total" step="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+                <label>Fecha de Inicio *</label>
+                <input type="date" name="fecha_inicio" required>
+            </div>
+            <div class="form-group">
+                <label>Fecha Límite (opcional)</label>
+                <input type="date" name="fecha_limite">
+            </div>
+            <div class="form-group">
+                <label>Tasa de Interés (%) (opcional)</label>
+                <input type="number" name="interes" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea name="notas" rows="3" placeholder="Información adicional (opcional)"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Cancelar</button>
+                <button type="submit" class="btn btn-warning">Registrar Deuda</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para registrar pago -->
+<div id="paymentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>💵 Registrar Pago</h2>
+            <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+        </div>
+        <form id="paymentForm" onsubmit="submitPayment(event)">
+            <input type="hidden" name="deuda_id" id="payment_deuda_id">
+            <p class="modal-info">Deuda: <strong id="payment_acreedor"></strong></p>
+            <div class="form-group">
+                <label>Fecha de Pago *</label>
+                <input type="date" name="fecha" required>
+            </div>
+            <div class="form-group">
+                <label>Monto del Pago *</label>
+                <input type="number" name="monto" step="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea name="notas" rows="2" placeholder="Información del pago (opcional)"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function showAddModal() {
+    document.getElementById('addModal').classList.add('show');
+    document.querySelector('input[name="fecha_inicio"]').value = new Date().toISOString().split('T')[0];
+}
+
+function closeAddModal() {
+    document.getElementById('addModal').classList.remove('show');
+    document.getElementById('deudaForm').reset();
+}
+
+function showPaymentModal(deudaId, acreedor) {
+    document.getElementById('payment_deuda_id').value = deudaId;
+    document.getElementById('payment_acreedor').textContent = acreedor;
+    document.querySelector('#paymentForm input[name="fecha"]').value = new Date().toISOString().split('T')[0];
+    document.getElementById('paymentModal').classList.add('show');
+}
+
+function closePaymentModal() {
+    document.getElementById('paymentModal').classList.remove('show');
+    document.getElementById('paymentForm').reset();
+}
+
+async function submitDeuda(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    try {
+        const response = await fetch('/api/deudas', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showNotification('✅ Deuda registrada correctamente', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showNotification('❌ Error al registrar deuda', 'error');
+    }
+}
+
+async function submitPayment(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    const deudaId = data.deuda_id;
+    delete data.deuda_id;
+    
+    try {
+        const response = await fetch(`/api/deudas/${deudaId}/pagar`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showNotification('✅ Pago registrado correctamente', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showNotification('❌ Error al registrar pago', 'error');
+    }
+}
+
+async function deleteDeuda(id) {
+    if (!confirm('¿Estás seguro de eliminar esta deuda? Se eliminarán también todos los pagos asociados.')) return;
+    
+    try {
+        const response = await fetch(`/api/deudas/${id}`, {method: 'DELETE'});
+        if (response.ok) {
+            showNotification('✅ Deuda eliminada', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showNotification('❌ Error al eliminar deuda', 'error');
+    }
+}
+</script>
+{% endblock %}
+

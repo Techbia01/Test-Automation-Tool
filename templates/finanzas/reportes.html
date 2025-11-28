@@ -1,0 +1,97 @@
+{% extends "finanzas/base.html" %}
+
+{% block title %}Reportes - Mis Finanzas{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">📊 Reportes y Estadísticas</h1>
+</div>
+
+<div class="reportes-container">
+    <!-- Resumen por categorías -->
+    <div class="report-section">
+        <h2>💵 Ingresos por Categoría</h2>
+        <div class="category-stats">
+            {% if ingresos_categoria %}
+                {% for item in ingresos_categoria %}
+                <div class="category-item income-category">
+                    <div class="category-name">{{ item.categoria or 'Sin categoría' }}</div>
+                    <div class="category-amount">${{ "%.2f"|format(item.total) }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="empty-message">No hay datos de ingresos</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="report-section">
+        <h2>💸 Gastos por Categoría</h2>
+        <div class="category-stats">
+            {% if gastos_categoria %}
+                {% for item in gastos_categoria %}
+                <div class="category-item expense-category">
+                    <div class="category-name">{{ item.categoria or 'Sin categoría' }}</div>
+                    <div class="category-amount">${{ "%.2f"|format(item.total) }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="empty-message">No hay datos de gastos</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tendencia mensual -->
+    <div class="report-section full-width">
+        <h2>📈 Tendencia Mensual (Últimos 6 Meses)</h2>
+        {% if tendencia %}
+        <div class="tendencia-table">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Mes</th>
+                        <th>Ingresos</th>
+                        <th>Gastos</th>
+                        <th>Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mes in tendencia %}
+                    {% set balance = mes.ingresos - mes.gastos %}
+                    <tr>
+                        <td><strong>{{ mes.mes }}</strong></td>
+                        <td class="amount-positive">${{ "%.2f"|format(mes.ingresos) }}</td>
+                        <td class="amount-negative">${{ "%.2f"|format(mes.gastos) }}</td>
+                        <td class="{% if balance >= 0 %}amount-positive{% else %}amount-negative{% endif %}">
+                            ${{ "%.2f"|format(balance) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="empty-message">No hay suficientes datos para mostrar tendencias</p>
+        {% endif %}
+    </div>
+
+    <!-- Información adicional -->
+    <div class="report-section full-width info-cards">
+        <div class="info-card">
+            <div class="info-icon">💡</div>
+            <div class="info-content">
+                <h3>Consejo Financiero</h3>
+                <p>Mantén tus gastos por debajo del 70% de tus ingresos y destina al menos un 20% al ahorro.</p>
+            </div>
+        </div>
+        <div class="info-card">
+            <div class="info-icon">🎯</div>
+            <div class="info-content">
+                <h3>Meta Sugerida</h3>
+                <p>Crea un fondo de emergencia equivalente a 3-6 meses de tus gastos mensuales.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

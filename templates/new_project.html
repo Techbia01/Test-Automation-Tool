@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Proyecto - Sistema QA{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <!-- Card principal con el nuevo estilo -->
+        <div class="card shadow-sm mb-4" style="border-radius: 16px;">
+            <div class="card-body p-4">
+                <h3 class="mb-4" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                        <i class="fas fa-plus"></i>
+                    </span>
+                    <div>
+                        <strong style="font-size: 1.5rem;">Crear Nuevo Proyecto</strong>
+                        <p class="mb-0 text-muted" style="font-size: 0.9rem; font-weight: 400;">Pega la historia de usuario y configura tu proyecto</p>
+                    </div>
+                </h3>
+                
+                <form id="projectForm">
+                    <!-- Información del Proyecto -->
+                    <div class="mb-4 p-4" style="background: rgba(99, 102, 241, 0.05); border-radius: 12px; border-left: 4px solid #6366f1;">
+                        <h5 class="mb-4" style="display: flex; align-items: center; gap: 0.5rem; color: #4c1d95;">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Información del Proyecto</strong>
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="name" class="form-label text-muted small mb-2" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Nombre del Proyecto *</label>
+                                <input type="text" class="form-control" id="name" name="name" required placeholder="Ej: Backend Odoo - Variables Dinámicas JSON"
+                                       style="border: 2px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem;">
+                                <small class="form-text text-muted mt-2 d-block">
+                                    <i class="fas fa-lightbulb me-1"></i> 
+                                    El nombre se usará para identificar el proyecto y generar los archivos de exportación.
+                                </small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="linear_hu_id" class="form-label text-muted small mb-2" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">ID HU (Linear) *</label>
+                                <input type="text" class="form-control" id="linear_hu_id" name="linear_hu_id" required 
+                                       placeholder="Ej: FIN-1264"
+                                       style="border: 2px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem; font-family: 'Courier New', monospace;">
+                                <small class="form-text text-muted mt-2 d-block">
+                                    <i class="fas fa-link me-1"></i> 
+                                    Vinculación automática
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Historia de Usuario con Analizador Inteligente -->
+                    <div class="mb-4 p-4" style="background: rgba(16, 217, 196, 0.05); border-radius: 12px; border-left: 4px solid #10d9c4;">
+                        <h5 class="mb-4" style="display: flex; align-items: center; gap: 0.5rem; color: #10d9c4;">
+                            <i class="fas fa-magic"></i>
+                            <strong>Analizador Inteligente de Historia de Usuario</strong>
+                        </h5>
+                        
+                        <!-- Info del Analizador -->
+                        <div class="p-3 mb-4" style="background: white; border-radius: 10px; border: 1px solid rgba(16, 217, 196, 0.3);">
+                            <div class="d-flex align-items-start gap-3 mb-3">
+                                <div style="background: linear-gradient(135deg, #10d9c4 0%, #0ea5a5 100%); color: white; width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                    <i class="fas fa-robot" style="font-size: 1.2rem;"></i>
+                                </div>
+                                <div>
+                                    <strong style="color: #10d9c4; font-size: 1.05rem;">Sistema Inteligente de Análisis</strong>
+                                    <p class="text-muted mb-0" style="font-size: 0.9rem;">Pega todo el contenido y el sistema extraerá automáticamente todos los elementos relevantes</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Features Grid -->
+                            <div class="row g-2">
+                                <div class="col-md-3 col-6">
+                                    <div class="d-flex align-items-center gap-2 p-2" style="background: rgba(16, 217, 196, 0.1); border-radius: 6px;">
+                                        <i class="fas fa-check-circle" style="font-size: 0.9rem; color: #10d9c4;"></i>
+                                        <small style="font-weight: 500;">Criterios</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <div class="d-flex align-items-center gap-2 p-2" style="background: rgba(16, 217, 196, 0.1); border-radius: 6px;">
+                                        <i class="fas fa-cog" style="font-size: 0.9rem; color: #10d9c4;"></i>
+                                        <small style="font-weight: 500;">Requisitos</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <div class="d-flex align-items-center gap-2 p-2" style="background: rgba(16, 217, 196, 0.1); border-radius: 6px;">
+                                        <i class="fas fa-clipboard-list" style="font-size: 0.9rem; color: #10d9c4;"></i>
+                                        <small style="font-weight: 500;">Reglas</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <div class="d-flex align-items-center gap-2 p-2" style="background: rgba(16, 217, 196, 0.1); border-radius: 6px;">
+                                        <i class="fas fa-shield-alt" style="font-size: 0.9rem; color: #10d9c4;"></i>
+                                        <small style="font-weight: 500;">Validaciones</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Label y Botones -->
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <label for="user_story" class="form-label text-muted small mb-0" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Contenido de la Historia de Usuario *</label>
+                            <div class="d-flex gap-2">
+                                <a href="/static/GUIA_ESCRITURA_HUS.md" target="_blank" class="btn btn-sm" style="background: white; border: 2px solid #10d9c4; color: #10d9c4; border-radius: 8px; font-weight: 600;">
+                                    <i class="fas fa-book"></i> Guía
+                                </a>
+                                <button type="button" class="btn btn-sm" onclick="validarCalidadHU()" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: white; border: none; border-radius: 8px; font-weight: 600;">
+                                    <i class="fas fa-check-circle"></i> Validar
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <textarea class="form-control" id="user_story" name="user_story" rows="12" required 
+                                  placeholder="Pega aquí TODO el contenido de tu Historia de Usuario:&#10;&#10;Ejemplo:&#10;Como backend de Odoo,&#10;Todas las variables dinámicas llegan en JSON...&#10;&#10;✨ El analizador procesará automáticamente el texto."
+                                  style="border: 2px solid #e2e8f0; border-radius: 10px; padding: 1rem; font-size: 0.95rem; line-height: 1.6; font-family: 'Inter', sans-serif;"></textarea>
+                        <div id="hu-quality-feedback" class="mt-3"></div>
+                        <small class="form-text text-muted mt-2 d-block">
+                            <i class="fas fa-lightbulb me-1"></i> 
+                            <strong>Tip:</strong> No necesitas estructurar el texto. Solo pega todo el contenido y el sistema se encargará del resto.
+                        </small>
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div class="d-flex gap-3 justify-content-end mt-4">
+                        <a href="{{ url_for('index') }}" class="btn btn-lg" style="background: white; border: 2px solid #e2e8f0; color: #6b7280; border-radius: 10px; padding: 0.75rem 1.5rem; font-weight: 600;">
+                            <i class="fas fa-arrow-left me-2"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-lg" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: white; border: none; border-radius: 10px; padding: 0.75rem 2rem; font-weight: 600; box-shadow: 0 4px 12px rgba(76, 29, 149, 0.3);">
+                            <i class="fas fa-save me-2"></i>Crear Proyecto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Resultado de Validación -->
+        <div id="validationResult" class="card shadow-sm mt-4" style="display: none; border-radius: 16px;">
+            <div class="card-body p-4">
+                <h5 class="mb-4" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="background: linear-gradient(135deg, #10d9c4 0%, #0ea5a5 100%); color: white; width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-check-circle"></i>
+                    </span>
+                    <strong>Resultado de Validación</strong>
+                </h5>
+                <div id="validationContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $('#projectForm').on('submit', function(e) {
+        e.preventDefault();
+        createProject();
+    });
+});
+
+function parseUserStory() {
+    const userStory = $('#user_story').val().trim();
+    
+    if (!userStory) {
+        showAlert('Por favor ingresa una historia de usuario', 'warning');
+        return;
+    }
+    
+    showLoading($('#validationResult'));
+    $('#validationResult').show();
+    
+    $.ajax({
+        url: '/parse_user_story',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ user_story: userStory }),
+        success: function(data) {
+            hideLoading($('#validationResult'));
+            
+            if (data.parsed_successfully) {
+                let html = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> Historia de usuario parseada correctamente
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-tag"></i> Título Extraído:</h6>
+                            <p class="text-muted">${data.title}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-list"></i> Criterios Encontrados:</h6>
+                            <p class="text-muted">${data.criteria_count} criterios de aceptación</p>
+                        </div>
+                    </div>
+                `;
+                
+                if (data.acceptance_criteria && data.acceptance_criteria.length > 0) {
+                    html += `
+                        <h6><i class="fas fa-clipboard-list"></i> Criterios de Aceptación:</h6>
+                        <div class="criteria-list">
+                    `;
+                    
+                    data.acceptance_criteria.forEach(function(criteria, index) {
+                        html += `
+                            <div class="criteria-item">
+                                <strong>${index + 1}.</strong> ${criteria}
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                }
+                
+                $('#validationContent').html(html);
+            } else {
+                $('#validationContent').html(`
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        La historia de usuario se parseó pero puede necesitar ajustes. 
+                        Revisa el formato y los criterios de aceptación.
+                    </div>
+                `);
+            }
+        },
+        error: function(xhr) {
+            hideLoading($('#validationResult'));
+            const error = xhr.responseJSON?.error || 'Error procesando la historia de usuario';
+            $('#validationContent').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> ${error}
+                </div>
+            `);
+        }
+    });
+}
+
+function validarCalidadHU() {
+    const huText = document.getElementById('user_story').value;
+    const feedbackDiv = document.getElementById('hu-quality-feedback');
+    
+    if (!huText || huText.trim().length < 50) {
+        feedbackDiv.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i> 
+                Por favor, pega el contenido de la HU primero.
+            </div>
+        `;
+        return;
+    }
+    
+    try {
+        // Análisis inteligente de calidad
+        const length = huText.length;
+        const lines = huText.split('\n');
+        
+        let score = 0;
+        let warnings = [];
+        let tips = [];
+        
+        // 1. DETECCIÓN INTELIGENTE DE CRITERIOS (cualquier formato)
+        let criteriaCount = 0;
+        let criteriaFormats = [];
+        
+        // Buscar checkboxes (✅, ☑️, ✓)
+        const checkboxMatches = huText.match(/[✅☑️✓]/g);
+        if (checkboxMatches && checkboxMatches.length > 0) {
+            criteriaCount += checkboxMatches.length;
+            criteriaFormats.push('checkboxes');
+        }
+        
+        // Buscar bullets (-, *, •)
+        const bulletLines = lines.filter(line => /^\s*[-*•]\s+.{10,}/.test(line));
+        if (bulletLines.length > 0) {
+            criteriaCount += bulletLines.length;
+            criteriaFormats.push('bullets');
+        }
+        
+        // Buscar numeración (1., 2., etc.)
+        const numberedLines = lines.filter(line => /^\s*\d+[\.)]\s+.{10,}/.test(line));
+        if (numberedLines.length > 0) {
+            criteriaCount += numberedLines.length;
+            criteriaFormats.push('numeración');
+        }
+        
+        // Buscar formato Gherkin (Given/When/Then o Dado/Cuando/Entonces)
+        const gherkinMatches = huText.match(/(?:Given|Dado|When|Cuando|Then|Entonces)\s+.{10,}/gi);
+        if (gherkinMatches && gherkinMatches.length > 0) {
+            criteriaCount += Math.floor(gherkinMatches.length / 2); // Aproximado
+            criteriaFormats.push('Gherkin');
+        }
+        
+        // Buscar frases con "debe", "tiene que", "el sistema"
+        const mustLines = lines.filter(line => /(?:debe|tiene que|el sistema|should|must)\s+.{10,}/i.test(line));
+        if (mustLines.length > 0) {
+            criteriaCount += Math.floor(mustLines.length * 0.5); // Ponderado
+            criteriaFormats.push('requisitos');
+        }
+        
+        // Evitar duplicados (ajuste por sobreconteo)
+        criteriaCount = Math.min(criteriaCount, lines.length * 0.6);
+        criteriaCount = Math.floor(criteriaCount);
+        
+        console.log('📊 Criterios detectados:', criteriaCount, 'Formatos:', criteriaFormats);
+        
+        // 2. EVALUACIÓN DE CRITERIOS
+        if (criteriaCount >= 5) {
+            score += 30;
+            tips.push(`✅ Excelente: ${criteriaCount} criterios detectados`);
+        } else if (criteriaCount >= 3) {
+            score += 20;
+            tips.push(`✅ Bueno: ${criteriaCount} criterios encontrados`);
+        } else if (criteriaCount >= 1) {
+            score += 10;
+            warnings.push(`⚠️ Solo ${criteriaCount} criterio(s) detectado(s) - Recomendado: 5-15`);
+        } else {
+            warnings.push(`❌ No se detectaron criterios de aceptación claros`);
+            tips.push('Agrega criterios usando: ✅, bullets (-), numeración (1.) o formato Gherkin');
+        }
+        
+        // 3. DETECCIÓN DE CONTEXTO/DESCRIPCIÓN
+        const hasContext = /(?:Contexto|Context|Descripci[oó]n|Description|Solo consulta)/i.test(huText);
+        if (hasContext) {
+            score += 15;
+        } else {
+            tips.push('💡 Considera agregar contexto o descripción de la HU');
+        }
+        
+        // 4. EVALUACIÓN DE LONGITUD
+        if (length >= 200 && length <= 3000) {
+            score += 15;
+        } else if (length > 3000) {
+            warnings.push('⚠️ HU muy larga - Considera separar documentación técnica');
+        } else {
+            warnings.push('⚠️ HU muy corta - Agrega más detalles');
+        }
+        
+        // 5. DETECCIÓN DE BLOQUES DE CÓDIGO/JSON
+        const codeBlocks = huText.match(/\{[\s\S]{100,}\}/g);
+        const codeBlockCount = codeBlocks ? codeBlocks.length : 0;
+        if (codeBlockCount > 3) {
+            warnings.push(`⚠️ ${codeBlockCount} bloques JSON - Considera moverlos a doc técnica`);
+        } else if (codeBlockCount > 0) {
+            score += 10;
+            tips.push(`✅ Ejemplos técnicos incluidos (${codeBlockCount})`);
+        } else {
+            score += 10;
+        }
+        
+        // 6. DETECCIÓN DE ESTRUCTURA
+        const hasSections = /(?:Criterios|Requisitos|Requerimientos|Context|Description)/gi.test(huText);
+        if (hasSections) {
+            score += 15;
+        }
+        
+        // 7. FORMATO GHERKIN (bonus, no obligatorio)
+        const hasGherkin = /(?:Given|Dado|When|Cuando|Then|Entonces)/i.test(huText);
+        if (hasGherkin) {
+            score += 10;
+            tips.push('✅ Formato Gherkin detectado (bonus)');
+        }
+        
+        // 8. BONUS: Detectar elementos específicos
+        const hasUIElements = /(?:botón|button|tabla|table|campo|field|formulario|form)/i.test(huText);
+        if (hasUIElements) {
+            score += 5;
+        }
+        
+        // Determinar calidad
+        let quality, color, icon;
+        if (score >= 80) {
+            quality = "Excelente";
+            color = "success";
+            icon = "fa-check-circle";
+        } else if (score >= 60) {
+            quality = "Buena";
+            color = "info";
+            icon = "fa-info-circle";
+        } else if (score >= 40) {
+            quality = "Mejorable";
+            color = "warning";
+            icon = "fa-exclamation-triangle";
+        } else {
+            quality = "Necesita Mejoras";
+            color = "danger";
+            icon = "fa-times-circle";
+        }
+        
+        // Mostrar resultado
+        let html = `
+            <div class="alert alert-${color}">
+                <h6><i class="fas ${icon}"></i> Calidad de HU: ${quality} (${score}/100 puntos)</h6>
+                <ul class="mb-0">
+        `;
+        
+        if (warnings.length > 0) {
+            html += '<li><strong>Advertencias:</strong><ul>';
+            warnings.forEach(w => html += `<li>${w}</li>`);
+            html += '</ul></li>';
+        }
+        
+        if (tips.length > 0) {
+            html += '<li><strong>Recomendaciones:</strong><ul>';
+            tips.forEach(t => html += `<li>${t}</li>`);
+            html += '</ul></li>';
+        }
+        
+        html += `
+                    <li><strong>Criterios detectados:</strong> ${criteriaCount} (recomendado: 5-15)</li>
+                    <li><strong>Tamaño:</strong> ${length} caracteres (óptimo: 1000-3000)</li>
+                </ul>
+                <hr>
+                <small>
+                    <i class="fas fa-book"></i> 
+                    <a href="/static/GUIA_ESCRITURA_HUS.md" target="_blank">Ver guía completa</a> para mejorar tu HU
+                </small>
+            </div>
+        `;
+        
+        feedbackDiv.innerHTML = html;
+        
+    } catch (error) {
+        // Si hay cualquier error, mostrar mensaje amigable
+        console.error('Error en validación:', error);
+        feedbackDiv.innerHTML = `
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle"></i> Análisis de HU</h6>
+                <p class="mb-2">Tu Historia de Usuario tiene:</p>
+                <ul class="mb-0">
+                    <li><strong>Tamaño:</strong> ${huText.length} caracteres</li>
+                    <li><strong>Estado:</strong> Lista para analizar</li>
+                </ul>
+                <hr>
+                <small>
+                    <i class="fas fa-lightbulb"></i> 
+                    Haz clic en "Analizar HU" para extraer los criterios de aceptación.
+                </small>
+            </div>
+        `;
+    }
+}
+
+function createProject() {
+    const formData = {
+        name: $('#name').val().trim(),
+        description: '', // Campo removido, pero mantenemos compatibilidad con backend
+        user_story: $('#user_story').val().trim(),
+        qa_comments: '', // Campo removido, pero mantenemos compatibilidad con backend
+        linear_hu_id: $('#linear_hu_id').val().trim() // ✅ AGREGADO!
+    };
+    
+    if (!formData.name || !formData.user_story) {
+        showAlert('Nombre del proyecto y historia de usuario son requeridos', 'warning');
+        return;
+    }
+    
+    if (!formData.linear_hu_id) {
+        showAlert('ID de Historia de Usuario (Linear) es requerido', 'warning');
+        return;
+    }
+    
+    showLoading($('#projectForm'));
+    
+    $.ajax({
+        url: '/create_project',
+        method: 'POST',
+        data: formData,
+        success: function(data) {
+            hideLoading($('#projectForm'));
+            if (data.success) {
+                showAlert('Proyecto creado exitosamente', 'success');
+                setTimeout(function() {
+                    window.location.href = data.redirect_url;
+                }, 1500);
+            }
+        },
+        error: function(xhr) {
+            hideLoading($('#projectForm'));
+            const error = xhr.responseJSON?.error || 'Error creando el proyecto';
+            showAlert(error, 'danger');
+        }
+    });
+}
+</script>
+{% endblock %}

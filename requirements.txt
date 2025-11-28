@@ -1,0 +1,21 @@
+# Sistema de Automatización de Casos de Prueba para QA
+# Dependencias Python requeridas
+
+# Framework web
+Flask>=2.3.0
+Werkzeug>=2.3.0
+
+# Procesamiento de datos
+pandas>=1.5.0
+openpyxl>=3.0.0
+
+# Cliente HTTP para APIs
+requests>=2.31.0
+
+# Utilidades
+colorama>=0.4.4
+rich>=12.0.0
+
+# Procesamiento de documentos (opcional)
+python-docx>=0.8.11
+

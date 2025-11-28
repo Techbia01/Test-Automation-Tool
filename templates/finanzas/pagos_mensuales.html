@@ -1,0 +1,165 @@
+{% extends "finanzas/base.html" %}
+
+{% block title %}Pagos Mensuales - Mis Finanzas{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">🔄 Pagos Mensuales Recurrentes</h1>
+    <button class="btn btn-primary" onclick="showAddModal()">➕ Nuevo Pago Mensual</button>
+</div>
+
+<div class="info-banner">
+    <span class="icon">💡</span>
+    <p>Registra aquí los pagos que realizas mensualmente de forma recurrente (renta, servicios, suscripciones, etc.)</p>
+</div>
+
+<div class="pagos-mensuales-grid">
+    {% if pagos %}
+        {% for pago in pagos %}
+        <div class="pago-mensual-card">
+            <div class="pago-header">
+                <h3>{{ pago.nombre }}</h3>
+                {% if pago.categoria %}
+                <span class="badge">{{ pago.categoria }}</span>
+                {% endif %}
+            </div>
+            <div class="pago-body">
+                <div class="pago-monto">${{ "%.2f"|format(pago.monto) }}</div>
+                <div class="pago-dia">
+                    <span class="icon">📅</span>
+                    Día {{ pago.dia_pago }} de cada mes
+                </div>
+                {% if pago.notas %}
+                <div class="pago-notas">
+                    <span class="icon">📝</span>
+                    {{ pago.notas }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="pago-footer">
+                <button class="btn btn-sm btn-danger" onclick="deletePago({{ pago.id }})">
+                    🗑️ Eliminar
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <p class="empty-message">No hay pagos mensuales registrados. ¡Agrega tus pagos recurrentes para llevar mejor control!</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Resumen mensual -->
+{% if pagos %}
+<div class="content-card monthly-summary">
+    <h2>📊 Resumen Mensual</h2>
+    {% set total_mensual = pagos|sum(attribute='monto') %}
+    <div class="summary-info">
+        <div class="summary-item">
+            <span class="label">Total de Pagos Mensuales:</span>
+            <span class="value">${{ "%.2f"|format(total_mensual) }}</span>
+        </div>
+        <div class="summary-item">
+            <span class="label">Cantidad de Pagos:</span>
+            <span class="value">{{ pagos|length }}</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal para agregar pago mensual -->
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>➕ Nuevo Pago Mensual</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="pagoForm" onsubmit="submitPago(event)">
+            <div class="form-group">
+                <label>Nombre del Pago *</label>
+                <input type="text" name="nombre" placeholder="Ej: Renta, Netflix, Luz, Agua" required>
+            </div>
+            <div class="form-group">
+                <label>Monto Mensual *</label>
+                <input type="number" name="monto" step="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+                <label>Día de Pago (1-31) *</label>
+                <input type="number" name="dia_pago" min="1" max="31" placeholder="15" required>
+                <small>Día del mes en que se realiza el pago</small>
+            </div>
+            <div class="form-group">
+                <label>Categoría</label>
+                <select name="categoria">
+                    <option value="">Seleccionar...</option>
+                    <option value="Vivienda">Vivienda (Renta/Hipoteca)</option>
+                    <option value="Servicios">Servicios (Luz/Agua/Gas)</option>
+                    <option value="Internet/TV">Internet/TV</option>
+                    <option value="Suscripciones">Suscripciones</option>
+                    <option value="Seguros">Seguros</option>
+                    <option value="Transporte">Transporte</option>
+                    <option value="Educación">Educación</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea name="notas" rows="3" placeholder="Información adicional (opcional)"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function showAddModal() {
+    document.getElementById('addModal').classList.add('show');
+}
+
+function closeModal() {
+    document.getElementById('addModal').classList.remove('show');
+    document.getElementById('pagoForm').reset();
+}
+
+async function submitPago(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    try {
+        const response = await fetch('/api/pagos-mensuales', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showNotification('✅ Pago mensual registrado correctamente', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showNotification('❌ Error al registrar pago mensual', 'error');
+    }
+}
+
+async function deletePago(id) {
+    if (!confirm('¿Estás seguro de eliminar este pago mensual?')) return;
+    
+    try {
+        const response = await fetch(`/api/pagos-mensuales/${id}`, {method: 'DELETE'});
+        if (response.ok) {
+            showNotification('✅ Pago mensual eliminado', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showNotification('❌ Error al eliminar pago mensual', 'error');
+    }
+}
+</script>
+{% endblock %}
+

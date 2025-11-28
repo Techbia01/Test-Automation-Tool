@@ -1,0 +1,122 @@
+{% extends "finanzas/base.html" %}
+
+{% block title %}Dashboard - Mis Finanzas{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1 class="page-title">📊 Dashboard Financiero</h1>
+    
+    <!-- Tarjetas de resumen -->
+    <div class="stats-grid">
+        <div class="stat-card income">
+            <div class="stat-icon">💵</div>
+            <div class="stat-content">
+                <h3>Ingresos Totales</h3>
+                <p class="stat-value">${{ "%.2f"|format(total_ingresos) }}</p>
+            </div>
+        </div>
+        
+        <div class="stat-card expense">
+            <div class="stat-icon">💸</div>
+            <div class="stat-content">
+                <h3>Gastos Totales</h3>
+                <p class="stat-value">${{ "%.2f"|format(total_gastos) }}</p>
+            </div>
+        </div>
+        
+        <div class="stat-card balance {% if balance >= 0 %}positive{% else %}negative{% endif %}">
+            <div class="stat-icon">💰</div>
+            <div class="stat-content">
+                <h3>Balance</h3>
+                <p class="stat-value">${{ "%.2f"|format(balance) }}</p>
+            </div>
+        </div>
+        
+        <div class="stat-card debt">
+            <div class="stat-icon">💳</div>
+            <div class="stat-content">
+                <h3>Deudas Pendientes</h3>
+                <p class="stat-value">${{ "%.2f"|format(total_deudas) }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accesos rápidos -->
+    <div class="quick-actions">
+        <h2>⚡ Acciones Rápidas</h2>
+        <div class="action-buttons">
+            <a href="/ingresos" class="btn btn-success">➕ Nuevo Ingreso</a>
+            <a href="/gastos" class="btn btn-danger">➖ Nuevo Gasto</a>
+            <a href="/deudas" class="btn btn-warning">💳 Gestionar Deudas</a>
+            <a href="/reportes" class="btn btn-info">📊 Ver Reportes</a>
+        </div>
+    </div>
+
+    <!-- Transacciones recientes -->
+    <div class="recent-section">
+        <div class="recent-column">
+            <h2>💵 Ingresos Recientes</h2>
+            <div class="transactions-list">
+                {% if ingresos_recientes %}
+                    {% for ingreso in ingresos_recientes %}
+                    <div class="transaction-item income-item">
+                        <div class="transaction-info">
+                            <strong>{{ ingreso.descripcion }}</strong>
+                            <span class="transaction-date">{{ ingreso.fecha }}</span>
+                            {% if ingreso.categoria %}
+                            <span class="transaction-category">{{ ingreso.categoria }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="transaction-amount positive">+${{ "%.2f"|format(ingreso.monto) }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="empty-message">No hay ingresos registrados aún</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="recent-column">
+            <h2>💸 Gastos Recientes</h2>
+            <div class="transactions-list">
+                {% if gastos_recientes %}
+                    {% for gasto in gastos_recientes %}
+                    <div class="transaction-item expense-item">
+                        <div class="transaction-info">
+                            <strong>{{ gasto.descripcion }}</strong>
+                            <span class="transaction-date">{{ gasto.fecha }}</span>
+                            {% if gasto.categoria %}
+                            <span class="transaction-category">{{ gasto.categoria }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="transaction-amount negative">-${{ "%.2f"|format(gasto.monto) }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="empty-message">No hay gastos registrados aún</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagos mensuales pendientes -->
+    {% if pagos_mensuales %}
+    <div class="monthly-payments">
+        <h2>🔄 Pagos Mensuales Configurados</h2>
+        <div class="payments-grid">
+            {% for pago in pagos_mensuales %}
+            <div class="payment-card">
+                <div class="payment-name">{{ pago.nombre }}</div>
+                <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
+                <div class="payment-day">Día {{ pago.dia_pago }} de cada mes</div>
+                {% if pago.categoria %}
+                <div class="payment-category">{{ pago.categoria }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

@@ -1,0 +1,142 @@
+{% extends "finanzas/base.html" %}
+
+{% block title %}Ingresos - Mis Finanzas{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">💵 Gestión de Ingresos</h1>
+    <button class="btn btn-success" onclick="showAddModal()">➕ Nuevo Ingreso</button>
+</div>
+
+<div class="content-card">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Descripción</th>
+                    <th>Categoría</th>
+                    <th>Monto</th>
+                    <th>Notas</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="ingresosTable">
+                {% if ingresos %}
+                    {% for ingreso in ingresos %}
+                    <tr data-id="{{ ingreso.id }}">
+                        <td>{{ ingreso.fecha }}</td>
+                        <td><strong>{{ ingreso.descripcion }}</strong></td>
+                        <td><span class="badge">{{ ingreso.categoria or '-' }}</span></td>
+                        <td class="amount-positive">${{ "%.2f"|format(ingreso.monto) }}</td>
+                        <td>{{ ingreso.notas or '-' }}</td>
+                        <td>
+                            <button class="btn-icon btn-danger" onclick="deleteIngreso({{ ingreso.id }})" title="Eliminar">
+                                🗑️
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-message">No hay ingresos registrados. ¡Agrega tu primer ingreso!</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para agregar ingreso -->
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>➕ Nuevo Ingreso</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="ingresoForm" onsubmit="submitIngreso(event)">
+            <div class="form-group">
+                <label>Fecha *</label>
+                <input type="date" name="fecha" required>
+            </div>
+            <div class="form-group">
+                <label>Descripción *</label>
+                <input type="text" name="descripcion" placeholder="Ej: Salario, Freelance, Venta" required>
+            </div>
+            <div class="form-group">
+                <label>Monto *</label>
+                <input type="number" name="monto" step="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+                <label>Categoría</label>
+                <select name="categoria">
+                    <option value="">Seleccionar...</option>
+                    <option value="Salario">Salario</option>
+                    <option value="Freelance">Freelance</option>
+                    <option value="Inversión">Inversión</option>
+                    <option value="Venta">Venta</option>
+                    <option value="Regalo">Regalo</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea name="notas" rows="3" placeholder="Información adicional (opcional)"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar Ingreso</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function showAddModal() {
+    document.getElementById('addModal').classList.add('show');
+    document.querySelector('input[name="fecha"]').value = new Date().toISOString().split('T')[0];
+}
+
+function closeModal() {
+    document.getElementById('addModal').classList.remove('show');
+    document.getElementById('ingresoForm').reset();
+}
+
+async function submitIngreso(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    try {
+        const response = await fetch('/api/ingresos', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showNotification('✅ Ingreso registrado correctamente', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showNotification('❌ Error al registrar ingreso', 'error');
+    }
+}
+
+async function deleteIngreso(id) {
+    if (!confirm('¿Estás seguro de eliminar este ingreso?')) return;
+    
+    try {
+        const response = await fetch(`/api/ingresos/${id}`, {method: 'DELETE'});
+        if (response.ok) {
+            showNotification('✅ Ingreso eliminado', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showNotification('❌ Error al eliminar ingreso', 'error');
+    }
+}
+</script>
+{% endblock %}
+

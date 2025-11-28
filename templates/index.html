@@ -1,0 +1,674 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio - Test Case Automation{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Botones de Tarjetas de Proyecto */
+    .btn-ver-detalles {
+        background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(76, 29, 149, 0.3);
+        text-decoration: none;
+        display: inline-block;
+        width: 100%;
+    }
+    
+    .btn-ver-detalles:hover {
+        background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+        box-shadow: 0 8px 20px rgba(76, 29, 149, 0.4);
+        transform: translateY(-2px);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-eliminar-proyecto {
+        border: 2px solid #dc3545;
+        color: #dc3545;
+        background: transparent;
+        border-radius: 12px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .btn-eliminar-proyecto:hover {
+        background: #dc3545;
+        color: white;
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    /* Carrusel Hero Styles */
+    .hero-carousel-container {
+        margin-bottom: 2rem;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+    }
+    
+    @media (min-width: 768px) {
+        .hero-carousel-container {
+            margin-left: 1rem;
+            margin-right: 1rem;
+        }
+    }
+    
+    #heroCarousel {
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+    
+    .hero-slide {
+        height: 500px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .hero-slide-1 {
+        background-color: #1a1a2e;
+        background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), 
+                         url('{{ url_for("static", filename="images/carousel1.jpg") }}');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+    
+    .hero-slide-2 {
+        background-color: #16213e;
+        background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), 
+                         url('{{ url_for("static", filename="images/carousel2.jpg") }}');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+    
+    .hero-slide-3 {
+        background-color: #0f3460;
+        background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), 
+                         url('{{ url_for("static", filename="images/carousel3.jpg") }}');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+    
+    .hero-content-carousel {
+        text-align: center;
+        color: white;
+        z-index: 2;
+        max-width: 600px;
+        padding: 2rem;
+    }
+    
+    .hero-title-carousel {
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .hero-subtitle-carousel {
+        font-size: 1.25rem;
+        font-weight: 400;
+        opacity: 0.95;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    
+    /* Indicadores personalizados */
+    .carousel-indicators button {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid white;
+        background-color: transparent;
+        opacity: 0.6;
+        transition: all 0.3s;
+    }
+    
+    .carousel-indicators button.active {
+        background-color: white;
+        opacity: 1;
+        transform: scale(1.2);
+    }
+    
+    /* Controles de navegación */
+    .carousel-control-prev,
+    .carousel-control-next {
+        width: 5%;
+        opacity: 0.8;
+    }
+    
+    .carousel-control-prev:hover,
+    .carousel-control-next:hover {
+        opacity: 1;
+    }
+    
+    /* Carrusel limpio y centrado */
+    .hero-carousel-container {
+        margin-bottom: 3rem;
+    }
+    
+    .hero-content-simple {
+        max-width: 600px;
+    }
+    
+    .hero-title-simple {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    
+    .hero-subtitle-simple {
+        font-size: 1.2rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+    }
+    
+    .btn-hero-simple {
+        padding: 1rem 2rem;
+        font-weight: 600;
+        border-radius: 8px;
+        margin-right: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .hero-title-carousel {
+            font-size: 2rem;
+        }
+        
+        .hero-subtitle-carousel {
+            font-size: 1rem;
+        }
+        
+        .hero-slide {
+            height: 350px;
+        }
+        
+        .hero-carousel-container {
+            margin-left: -15px;
+            margin-right: -15px;
+        }
+        
+        .btn-nav-custom span {
+            display: none;
+        }
+        
+        .btn-nav-custom {
+            padding: 0.5rem !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Carousel Section -->
+<div class="hero-carousel-container">
+    <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+        <!-- Indicadores -->
+        <div class="carousel-indicators">
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2"></button>
+        </div>
+        
+        <!-- Slides -->
+        <div class="carousel-inner">
+            <!-- Slide 1 - Automatización Inteligente -->
+            <div class="carousel-item active">
+                <div class="hero-slide hero-slide-1">
+                    <div class="hero-content-carousel">
+                        <h1 class="hero-title-carousel">Automatización Inteligente</h1>
+                        <p class="hero-subtitle-carousel">
+                            Genera casos de prueba automáticamente con IA avanzada
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Slide 2 - Gestión Profesional -->
+            <div class="carousel-item">
+                <div class="hero-slide hero-slide-2">
+                    <div class="hero-content-carousel">
+                        <h1 class="hero-title-carousel">Gestión Profesional</h1>
+                        <p class="hero-subtitle-carousel">
+                            Organiza y administra tus proyectos de QA de forma eficiente
+                        </p>
+                    </div>
+                                </div>
+                            </div>
+            
+            <!-- Slide 3 - Integración Linear -->
+            <div class="carousel-item">
+                <div class="hero-slide hero-slide-3">
+                    <div class="hero-content-carousel">
+                        <h1 class="hero-title-carousel">Integración Linear</h1>
+                        <p class="hero-subtitle-carousel">
+                            Conecta directamente con Linear para gestionar casos de prueba
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controles -->
+        <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon"></span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon"></span>
+        </button>
+    </div>
+    
+    <!-- Carrusel limpio sin botones duplicados -->
+</div>
+                
+<!-- Estadísticas - Grid 4 columnas -->
+<div class="row mb-5 g-4">
+    <div class="col-lg-3 col-md-6">
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--bia-primary);">
+            <i class="fas fa-folder"></i>
+        </div>
+        <div class="stat-number">{{ projects|length }}</div>
+        <div class="stat-label">Proyectos Totales</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--bia-secondary);">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-number">{{ projects|selectattr('status', 'equalto', 'generated')|list|length }}</div>
+        <div class="stat-label">Con Casos Generados</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--bia-warning);">
+            <i class="fas fa-edit"></i>
+        </div>
+        <div class="stat-number">{{ projects|selectattr('status', 'equalto', 'draft')|list|length }}</div>
+        <div class="stat-label">En Borrador</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--bia-info);">
+            <i class="fas fa-layer-group"></i>
+        </div>
+        <div class="stat-number">{{ projects|selectattr('template_used')|list|length }}</div>
+        <div class="stat-label">Con Plantillas</div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de Proyectos -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm" style="border-radius: 16px;">
+            <div class="card-body p-4">
+                <h4 class="mb-4" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                        <i class="fas fa-folder"></i>
+                    </span>
+                    <strong style="font-size: 1.4rem;">Proyectos Recientes</strong>
+                </h4>
+                
+                {% if projects %}
+                    <div class="projects-grid" id="projectsGrid">
+                        {% for project in projects %}
+                        <div class="project-card">
+                            <div class="project-card-header">
+                                <div class="project-card-title">{{ project.name }}</div>
+                                <div class="project-card-meta">
+                                    <div class="project-card-date">
+                                        <i class="fas fa-calendar"></i>
+                                        <span>{{ project.created_at[:10] }}</span>
+                                    </div>
+                                    <div class="project-card-status">
+                                        {% if project.status == 'generated' %}
+                                            <span class="badge-modern badge-generated">
+                                                <i class="fas fa-check"></i>
+                                                Generado
+                                            </span>
+                                        {% else %}
+                                            <span class="badge-modern badge-draft">
+                                                <i class="fas fa-edit"></i>
+                                                Borrador
+                                            </span>
+                                        {% endif %}
+                                        
+                                        {% if project.template_used %}
+                                            <span class="badge-modern badge-web">
+                                                <i class="fas fa-layer-group"></i>
+                                                {{ project.template_used|title }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="project-card-body">
+                                <div class="d-grid gap-2">
+                                    <a href="{{ url_for('project_detail', project_id=project.id) }}" class="btn btn-ver-detalles">
+                                        <i class="fas fa-eye me-2"></i>
+                                    <span>Ver Detalles</span>
+                                </a>
+                                    <button class="btn btn-eliminar-proyecto" 
+                                            data-project-id="{{ project.id }}" 
+                                            data-project-name="{{ project.name }}">
+                                        <i class="fas fa-trash me-2"></i>
+                                        <span>Eliminar</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="project-card-stats">
+                                <div class="project-stat">
+                                    <span class="project-stat-number">
+                                        {% if project.test_cases %}
+                                            {{ project.test_cases|length }}
+                                        {% else %}
+                                            0
+                                        {% endif %}
+                                    </span>
+                                    <span class="project-stat-label">Casos</span>
+                                </div>
+                                <div class="project-stat">
+                                    <span class="project-stat-number">
+                                        {{ project.created_at[8:10] }}
+                                    </span>
+                                    <span class="project-stat-label">{{ project.created_at[5:7] }}</span>
+                                </div>
+                                <div class="project-stat">
+                                    <span class="project-stat-number" style="color: var(--bia-secondary);">
+                                        <i class="fas fa-{{ 'check-circle' if project.status == 'generated' else 'clock' }}"></i>
+                                    </span>
+                                    <span class="project-stat-label">Estado</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Paginación -->
+                    <div class="d-flex justify-content-center align-items-center mt-4 gap-3">
+                        <button class="btn" id="btnPrevPage" onclick="cambiarPagina(-1)" style="background: linear-gradient(135deg, #10d9c4 0%, #0ea5e9 100%); color: white; border: none; border-radius: 12px; padding: 0.5rem 1.5rem; font-weight: 600; transition: all 0.3s;">
+                            <i class="fas fa-chevron-left"></i> Anterior
+                        </button>
+                        <span class="fw-bold" id="paginaInfo" style="color: #6366f1;">Página 1</span>
+                        <button class="btn" id="btnNextPage" onclick="cambiarPagina(1)" style="background: linear-gradient(135deg, #10d9c4 0%, #0ea5e9 100%); color: white; border: none; border-radius: 12px; padding: 0.5rem 1.5rem; font-weight: 600; transition: all 0.3s;">
+                            Siguiente <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No hay proyectos aún</h4>
+                        <p class="text-muted">Crea tu primer proyecto para comenzar a generar casos de prueba</p>
+                        <a href="{{ url_for('new_project') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-plus"></i>
+                            <span>Crear Primer Proyecto</span>
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Plantillas -->
+<div class="modal fade" id="templatesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-cogs"></i> Plantillas Disponibles</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="templatesContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadTemplates() {
+    $('#templatesModal').modal('show');
+    
+    $.get('/api/templates')
+        .done(function(data) {
+            let html = '<div class="row">';
+            
+            data.templates.forEach(function(template) {
+                html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">${template.name}</h6>
+                                <p class="card-text text-muted">${template.description}</p>
+                                <span class="badge bg-primary">${template.id}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            $('#templatesContent').html(html);
+        })
+        .fail(function() {
+            $('#templatesContent').html('<div class="alert alert-danger">Error cargando plantillas</div>');
+        });
+}
+
+function eliminarProyecto(projectId, projectName) {
+    console.log('🗑️ Eliminar proyecto llamado:', projectId, projectName);
+    
+    // Crear modal de confirmación moderno
+    const modalHTML = `
+        <div class="modal fade" id="modalEliminarProyecto" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content" style="border: none; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #ec4899 0%, #ef4444 100%); color: white; border: none; padding: 1.5rem;">
+                        <h5 class="modal-title fw-bold">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" style="padding: 2rem;">
+                        <div class="text-center mb-4">
+                            <div style="width: 80px; height: 80px; margin: 0 auto; background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-trash-alt fa-2x" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                            </div>
+                        </div>
+                        <h5 class="text-center mb-4" style="color: #1e293b; font-weight: 600;">¿Estás seguro de eliminar este proyecto?</h5>
+                        <div style="background: linear-gradient(135deg, #fef3c7 0%, #fce7f3 100%); border-left: 4px solid #f59e0b; padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                            <div class="mb-2">
+                                <strong style="color: #92400e;">Proyecto:</strong> 
+                                <span style="color: #78350f;">${projectName}</span>
+                            </div>
+                            <div>
+                                <strong style="color: #92400e;">ID:</strong> 
+                                <span style="color: #78350f; font-family: monospace; font-size: 0.9em;">${projectId}</span>
+                            </div>
+                        </div>
+                        <div style="background: #fee2e2; border-left: 4px solid #ef4444; padding: 1rem; border-radius: 12px;">
+                            <p class="mb-0" style="color: #991b1b; font-size: 0.9rem;">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Esta acción no se puede deshacer y eliminará todos los casos de prueba asociados.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="border: none; padding: 1.5rem; background: #f8fafc;">
+                        <button type="button" class="btn" data-bs-dismiss="modal" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); color: white; border: none; border-radius: 12px; padding: 0.75rem 1.5rem; font-weight: 600; transition: all 0.3s;">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </button>
+                        <button type="button" class="btn" onclick="confirmarEliminacionProyecto('${projectId}')" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; border-radius: 12px; padding: 0.75rem 1.5rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);">
+                            <i class="fas fa-trash me-2"></i>Eliminar Proyecto
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Limpiar modal anterior si existe
+    const existingModal = document.getElementById('modalEliminarProyecto');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Agregar y mostrar modal
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const modal = new bootstrap.Modal(document.getElementById('modalEliminarProyecto'));
+    modal.show();
+}
+
+function confirmarEliminacionProyecto(projectId) {
+    console.log('✅ Confirmación de eliminación:', projectId);
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalEliminarProyecto'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Mostrar loading
+    showAlert('<i class="fas fa-spinner fa-spin"></i> Eliminando proyecto...', 'info');
+    
+    console.log('🌐 Enviando petición DELETE a:', `/api/project/${projectId}`);
+    
+    fetch(`/api/project/${projectId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        console.log('📥 Respuesta recibida:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📦 Data recibida:', data);
+        if (data.success) {
+            showAlert('<i class="fas fa-check-circle"></i> Proyecto eliminado exitosamente', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showAlert('<i class="fas fa-times-circle"></i> Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error en fetch:', error);
+        showAlert('<i class="fas fa-exclamation-triangle"></i> Error: ' + error.message, 'danger');
+    });
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+// ============================================
+// PAGINACIÓN SIMPLE - 12 proyectos por página (3 filas x 4 columnas)
+// ============================================
+let paginaActual = 1;
+const proyectosPorPagina = 12;
+let todosLosProyectos = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    const projectCards = document.querySelectorAll('.project-card');
+    todosLosProyectos = Array.from(projectCards);
+    
+    if (todosLosProyectos.length > 0) {
+        mostrarPagina(1);
+    }
+});
+
+function mostrarPagina(pagina) {
+    const inicio = (pagina - 1) * proyectosPorPagina;
+    const fin = inicio + proyectosPorPagina;
+    const totalPaginas = Math.ceil(todosLosProyectos.length / proyectosPorPagina);
+    
+    // Ocultar todos los proyectos
+    todosLosProyectos.forEach(card => card.style.display = 'none');
+    
+    // Mostrar solo los de la página actual
+    todosLosProyectos.slice(inicio, fin).forEach(card => card.style.display = 'block');
+    
+    // Actualizar info de paginación
+    document.getElementById('paginaInfo').textContent = `Página ${pagina} de ${totalPaginas}`;
+    
+    // Habilitar/deshabilitar botones
+    document.getElementById('btnPrevPage').disabled = pagina === 1;
+    document.getElementById('btnNextPage').disabled = pagina === totalPaginas;
+    
+    paginaActual = pagina;
+}
+
+function cambiarPagina(direccion) {
+    const nuevaPagina = paginaActual + direccion;
+    const totalPaginas = Math.ceil(todosLosProyectos.length / proyectosPorPagina);
+    
+    if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas) {
+        mostrarPagina(nuevaPagina);
+        // Scroll suave hacia arriba
+        document.querySelector('.card-header h3').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Delegación de eventos para botones de eliminar
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Event listeners cargados');
+    
+    // Usar delegación de eventos en el contenedor de proyectos
+    document.addEventListener('click', function(event) {
+        // Verificar si el clic fue en un botón de eliminar o sus hijos
+        const button = event.target.closest('.btn-eliminar-proyecto');
+        if (button) {
+            event.preventDefault();
+            const projectId = button.dataset.projectId;
+            const projectName = button.dataset.projectName;
+            console.log('🗑️ Botón eliminar clickeado:', projectId, projectName);
+            eliminarProyecto(projectId, projectName);
+        }
+    });
+});
+
+console.log('✅ Sistema QA cargado correctamente');
+
+</script>
+{% endblock %}

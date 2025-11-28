@@ -1,0 +1,31 @@
+Historia de Usuario: Sistema de Login
+
+Como usuario del sistema
+Quiero poder iniciar sesión con mis credenciales
+Para acceder a las funcionalidades protegidas de la aplicación
+
+Descripción:
+El sistema debe permitir a los usuarios autenticarse de forma segura utilizando su email y contraseña. 
+Debe incluir validaciones de seguridad y manejo de errores apropiado.
+
+Criterios de Aceptación:
+
+1. Dado que soy un usuario registrado
+   Cuando ingreso mi email y contraseña correctos
+   Entonces debo ser redirigido al dashboard principal
+
+2. Dado que soy un usuario no registrado
+   Cuando intento iniciar sesión con credenciales incorrectas
+   Entonces debo ver un mensaje de error "Credenciales inválidas"
+
+3. Dado que soy un usuario
+   Cuando dejo campos vacíos y presiono "Iniciar Sesión"
+   Entonces debo ver mensajes de validación para los campos requeridos
+
+4. Dado que soy un usuario
+   Cuando ingreso una contraseña incorrecta 3 veces consecutivas
+   Entonces mi cuenta debe ser bloqueada temporalmente por 15 minutos
+
+5. Dado que soy un usuario autenticado
+   Cuando cierro sesión
+   Entonces debo ser redirigido a la página de login y no poder acceder a páginas protegidas

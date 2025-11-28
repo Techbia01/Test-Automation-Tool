@@ -1,0 +1,145 @@
+{% extends "finanzas/base.html" %}
+
+{% block title %}Gastos - Mis Finanzas{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">💸 Gestión de Gastos</h1>
+    <button class="btn btn-danger" onclick="showAddModal()">➕ Nuevo Gasto</button>
+</div>
+
+<div class="content-card">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Descripción</th>
+                    <th>Categoría</th>
+                    <th>Monto</th>
+                    <th>Notas</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="gastosTable">
+                {% if gastos %}
+                    {% for gasto in gastos %}
+                    <tr data-id="{{ gasto.id }}">
+                        <td>{{ gasto.fecha }}</td>
+                        <td><strong>{{ gasto.descripcion }}</strong></td>
+                        <td><span class="badge">{{ gasto.categoria or '-' }}</span></td>
+                        <td class="amount-negative">${{ "%.2f"|format(gasto.monto) }}</td>
+                        <td>{{ gasto.notas or '-' }}</td>
+                        <td>
+                            <button class="btn-icon btn-danger" onclick="deleteGasto({{ gasto.id }})" title="Eliminar">
+                                🗑️
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-message">No hay gastos registrados.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para agregar gasto -->
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>➕ Nuevo Gasto</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="gastoForm" onsubmit="submitGasto(event)">
+            <div class="form-group">
+                <label>Fecha *</label>
+                <input type="date" name="fecha" required>
+            </div>
+            <div class="form-group">
+                <label>Descripción *</label>
+                <input type="text" name="descripcion" placeholder="Ej: Supermercado, Gasolina, Renta" required>
+            </div>
+            <div class="form-group">
+                <label>Monto *</label>
+                <input type="number" name="monto" step="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+                <label>Categoría</label>
+                <select name="categoria">
+                    <option value="">Seleccionar...</option>
+                    <option value="Alimentos">Alimentos</option>
+                    <option value="Transporte">Transporte</option>
+                    <option value="Vivienda">Vivienda</option>
+                    <option value="Servicios">Servicios</option>
+                    <option value="Entretenimiento">Entretenimiento</option>
+                    <option value="Salud">Salud</option>
+                    <option value="Educación">Educación</option>
+                    <option value="Ropa">Ropa</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea name="notas" rows="3" placeholder="Información adicional (opcional)"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-danger">Guardar Gasto</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function showAddModal() {
+    document.getElementById('addModal').classList.add('show');
+    document.querySelector('input[name="fecha"]').value = new Date().toISOString().split('T')[0];
+}
+
+function closeModal() {
+    document.getElementById('addModal').classList.remove('show');
+    document.getElementById('gastoForm').reset();
+}
+
+async function submitGasto(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    try {
+        const response = await fetch('/api/gastos', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showNotification('✅ Gasto registrado correctamente', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showNotification('❌ Error al registrar gasto', 'error');
+    }
+}
+
+async function deleteGasto(id) {
+    if (!confirm('¿Estás seguro de eliminar este gasto?')) return;
+    
+    try {
+        const response = await fetch(`/api/gastos/${id}`, {method: 'DELETE'});
+        if (response.ok) {
+            showNotification('✅ Gasto eliminado', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showNotification('❌ Error al eliminar gasto', 'error');
+    }
+}
+</script>
+{% endblock %}
+
