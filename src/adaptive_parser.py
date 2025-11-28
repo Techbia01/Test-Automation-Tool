@@ -63,7 +63,9 @@ class AdaptiveParser:
         self.narrative_keywords = [
             'figma', 'onboarding', 'configuración', 'pantalla', 'estado',
             'flujo', 'proceso', 'paso', 'pestaña', 'sección', 'pop-up',
-            'modal', 'loader', 'calendario', 'drag', 'drop', 'arrastrar'
+            'modal', 'loader', 'calendario', 'drag', 'drop', 'arrastrar',
+            'mostrar', 'botón', 'crear', 'editar', 'seleccionar', 'sedes',
+            'grupos', 'breadcrumb', 'pop-up', 'popup', 'al darle', 'si el usuario'
         ]
         
         # Palabras clave que indican estructura tradicional
@@ -124,6 +126,18 @@ class AdaptiveParser:
         if len(re.findall(self.narrative_patterns['user_flows'], text, re.IGNORECASE)) > 0:
             narrative_score += 3
         if len(re.findall(self.narrative_patterns['states'], text, re.IGNORECASE)) > 0:
+            narrative_score += 2
+        
+        # Detectar condiciones con letras (a), (b), (c) - típico de estructura narrativa
+        if re.search(r'\([a-z]\)\s+[^\(\)]+', text, re.IGNORECASE):
+            narrative_score += 4
+        
+        # Detectar frases condicionales narrativas
+        if re.search(r'(?:Si|Cuando|Al)\s+(?:el\s+)?(?:usuario|user)[^\.]+\.', text, re.IGNORECASE):
+            narrative_score += 3
+        
+        # Detectar descripciones de comportamiento UI
+        if re.search(r'(?:mostrar|ocultar|crear|editar|seleccionar)\s+[^\.]+(?:botón|boton|button|campo|field|modal|popup)', text, re.IGNORECASE):
             narrative_score += 2
         
         for keyword in self.narrative_keywords:
@@ -403,30 +417,71 @@ class AdaptiveParser:
         """Genera criterios de aceptación desde texto narrativo"""
         criteria = []
         
-        # Criterios desde flujos de usuario
+        # MÉTODO 1: Extraer condiciones con letras (a), (b), (c)
+        lettered_conditions = re.findall(
+            r'\([a-z]\)\s*([^\(\)]+?)(?=\s*\([a-z]\)|\.\s*[A-Z]|\.\s*$|\n\n)',
+            text,
+            re.IGNORECASE | re.DOTALL
+        )
+        for condition in lettered_conditions:
+            cleaned = ' '.join(condition.split()).strip()
+            if len(cleaned) > 15:
+                criteria.append(f"Condición: {cleaned}")
+        
+        # MÉTODO 2: Extraer frases que empiezan con "Si el usuario", "Al darle", etc.
+        conditional_patterns = [
+            r'(?:Si|Cuando|Al)\s+(?:el\s+)?(?:usuario|user)[^\.]+\.',
+            r'(?:Si|Cuando)\s+[^\.]+(?:el\s+)?(?:usuario|user)[^\.]+\.',
+            r'Al\s+(?:darle|dar|hacer|presionar|click|seleccionar|crear|editar)[^\.]+\.',
+            r'(?:Si|Cuando)\s+[^\.]+(?:no\s+)?(?:se\s+)?(?:muestra|muestra|aparece|sale)[^\.]+\.',
+        ]
+        
+        for pattern in conditional_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                cleaned = match.strip()
+                if len(cleaned) > 20:
+                    criteria.append(cleaned)
+        
+        # MÉTODO 3: Extraer reglas de negocio explícitas
+        business_rule_patterns = [
+            r'(?:El|La|Los|Las)\s+[^\.]+(?:debe|deben|debería|deberían|puede|pueden|no\s+debe|no\s+deben)[^\.]+\.',
+            r'(?:Asegurar|Garantizar|Verificar)\s+que[^\.]+\.',
+            r'(?:Solo|Únicamente)\s+[^\.]+(?:si|cuando|cuando)[^\.]+\.',
+        ]
+        
+        for pattern in business_rule_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                cleaned = match.strip()
+                if len(cleaned) > 20:
+                    criteria.append(cleaned)
+        
+        # MÉTODO 4: Criterios desde flujos de usuario
         for flow in user_flows:
             if len(flow) > 20:
                 criteria.append(f"El sistema debe permitir: {flow}")
         
-        # Criterios desde estados
+        # MÉTODO 5: Criterios desde estados
         for state in states:
-            if 'onboarding' in state.lower() or 'configuración' in state.lower():
-                criteria.append(f"El sistema debe mostrar el estado: {state}")
+            if len(state) > 10:
+                criteria.append(f"El sistema debe manejar el estado: {state}")
         
-        # Criterios desde elementos UI
+        # MÉTODO 6: Criterios desde elementos UI
         for ui in ui_elements:
             if 'botón' in ui.lower() or 'button' in ui.lower():
                 criteria.append(f"El botón '{ui}' debe estar presente y funcional")
             elif 'campo' in ui.lower() or 'field' in ui.lower():
                 criteria.append(f"El campo '{ui}' debe permitir entrada de datos")
-            elif 'modal' in ui.lower() or 'popup' in ui.lower():
+            elif 'modal' in ui.lower() or 'popup' in ui.lower() or 'pop-up' in ui.lower():
                 criteria.append(f"El modal '{ui}' debe abrirse y cerrarse correctamente")
         
-        # Buscar acciones específicas mencionadas
+        # MÉTODO 7: Buscar acciones específicas mencionadas
         action_patterns = [
             r'(?:debe|debería)\s+([^\.]+)\.',
             r'(?:no\s+debe|no\s+debería)\s+([^\.]+)\.',
             r'(?:se\s+debe|se\s+debería)\s+([^\.]+)\.',
+            r'(?:se\s+muestra|se\s+muestran|aparece|aparecen|sale|salen)\s+([^\.]+)\.',
         ]
         
         for pattern in action_patterns:
@@ -434,17 +489,35 @@ class AdaptiveParser:
             for match in matches:
                 if isinstance(match, tuple):
                     match = ' '.join(match)
-                if len(match.strip()) > 20:
-                    criteria.append(match.strip())
+                cleaned = match.strip()
+                if len(cleaned) > 20:
+                    criteria.append(cleaned)
+        
+        # MÉTODO 8: Dividir por líneas y extraer frases significativas
+        lines = text.split('\n')
+        for line in lines:
+            line = line.strip()
+            # Buscar líneas que describen comportamiento
+            if len(line) > 30 and any(keyword in line.lower() for keyword in [
+                'mostrar', 'ocultar', 'crear', 'editar', 'seleccionar', 'permitir',
+                'validar', 'asegurar', 'garantizar', 'verificar', 'si tiene', 'si el',
+                'al darle', 'al crear', 'al seleccionar'
+            ]):
+                # Limpiar la línea
+                cleaned = ' '.join(line.split())
+                if len(cleaned) > 20:
+                    criteria.append(cleaned)
         
         # Eliminar duplicados y criterios muy cortos
         unique_criteria = []
         seen = set()
         for crit in criteria:
-            crit_lower = crit.lower()
-            if crit_lower not in seen and len(crit) > 20:
+            crit_lower = crit.lower().strip()
+            # Normalizar espacios
+            crit_normalized = ' '.join(crit_lower.split())
+            if crit_normalized not in seen and len(crit) > 20:
                 unique_criteria.append(crit)
-                seen.add(crit_lower)
+                seen.add(crit_normalized)
         
         return unique_criteria
 
