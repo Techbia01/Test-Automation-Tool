@@ -664,6 +664,7 @@ class ProfessionalQAGenerator:
         """
         Genera casos de prueba profesionales a partir de una historia de usuario
         DESCOMPONE cada criterio en múltiples casos específicos (felices, errores, usabilidad, etc.)
+        Ahora usa el contexto completo de la HU para generar casos más específicos y menos ambiguos.
         
         Args:
             user_story_text: Texto completo de la HU
@@ -675,6 +676,21 @@ class ProfessionalQAGenerator:
         print("\n" + "="*80)
         print("[INFO] GENERADOR PROFESIONAL DE CASOS DE PRUEBA MEJORADO")
         print("="*80)
+        
+        # Extraer contexto completo de la HU usando parser adaptativo
+        parsed_story = None
+        if parse_user_story_adaptive is not None:
+            try:
+                parsed_story = parse_user_story_adaptive(user_story_text)
+                print(f"[INFO] Contexto extraído - Tipo: {parsed_story.structure_type.value}")
+                print(f"[INFO] - Título: {parsed_story.title[:50]}...")
+                print(f"[INFO] - Contexto: {parsed_story.context[:50] if parsed_story.context else 'N/A'}...")
+                print(f"[INFO] - Descripción: {parsed_story.description[:50] if parsed_story.description else 'N/A'}...")
+                print(f"[INFO] - Flujos: {len(parsed_story.user_flows)}")
+                print(f"[INFO] - Estados: {len(parsed_story.states)}")
+                print(f"[INFO] - Elementos UI: {len(parsed_story.ui_elements)}")
+            except Exception as e:
+                print(f"[WARN] Error usando parser adaptativo: {e}", flush=True)
         
         # Extraer criterios de aceptación
         criteria = self.extract_criteria_from_text(user_story_text)
@@ -698,7 +714,8 @@ class ProfessionalQAGenerator:
                 criterion=criterion,
                 start_number=test_counter,
                 project_name=project_name,
-                user_story_text=user_story_text
+                user_story_text=user_story_text,
+                parsed_story=parsed_story  # Pasar contexto completo
             )
             test_cases.extend(decomposed_cases)
             test_counter += len(decomposed_cases)
@@ -707,7 +724,8 @@ class ProfessionalQAGenerator:
         global_cases = self._generate_global_test_cases(
             start_number=test_counter,
             project_name=project_name,
-            user_story_text=user_story_text
+            user_story_text=user_story_text,
+            parsed_story=parsed_story  # Pasar contexto completo
         )
         test_cases.extend(global_cases)
         
@@ -716,10 +734,11 @@ class ProfessionalQAGenerator:
         
         return test_cases
     
-    def _decompose_criterion_into_test_cases(self, criterion: str, start_number: int, project_name: str, user_story_text: str) -> List[TestCase]:
+    def _decompose_criterion_into_test_cases(self, criterion: str, start_number: int, project_name: str, user_story_text: str, parsed_story=None) -> List[TestCase]:
         """
         Descompone un criterio de aceptación en múltiples casos de prueba específicos
         Genera casos felices, errores, estados vacíos, usabilidad, etc.
+        Ahora usa el contexto completo de la HU para generar casos más específicos.
         """
         test_cases = []
         counter = start_number
@@ -740,7 +759,8 @@ class ProfessionalQAGenerator:
         happy_case = self._generate_happy_path_case(
             criterion=criterion,
             test_number=counter,
-            project_name=project_name
+            project_name=project_name,
+            parsed_story=parsed_story
         )
         test_cases.append(happy_case)
         counter += 1
@@ -849,57 +869,71 @@ class ProfessionalQAGenerator:
         
         return test_cases
     
-    def _generate_global_test_cases(self, start_number: int, project_name: str, user_story_text: str) -> List[TestCase]:
+    def _generate_global_test_cases(self, start_number: int, project_name: str, user_story_text: str, parsed_story=None) -> List[TestCase]:
         """Genera casos de prueba globales (estados vacíos generales, errores del sistema, etc.)"""
         test_cases = []
         counter = start_number
         
-        # Caso de estado vacío general
-        empty_state_case = self._generate_general_empty_state_case(
-            test_number=counter,
-            project_name=project_name
-        )
-        test_cases.append(empty_state_case)
-        counter += 1
-        
-        # Caso de error 500 del backend
-        error_500_case = self._generate_backend_error_case(
-            test_number=counter,
-            project_name=project_name,
-            error_code=500
-        )
-        test_cases.append(error_500_case)
-        counter += 1
-        
-        # Caso de error 404 del backend
-        error_404_case = self._generate_backend_error_case(
-            test_number=counter,
-            project_name=project_name,
-            error_code=404
-        )
-        test_cases.append(error_404_case)
-        counter += 1
+        # Solo generar casos globales si son relevantes para el contexto
+        # Si la HU es muy específica (narrativa), no agregar casos genéricos
+        if parsed_story and parsed_story.structure_type == StoryStructureType.NARRATIVE:
+            # Para HUs narrativas, solo agregar casos relevantes al contexto
+            if any("error" in flow.lower() or "falla" in flow.lower() for flow in parsed_story.user_flows):
+                error_case = self._generate_backend_error_case(
+                    test_number=counter,
+                    project_name=project_name,
+                    error_code=500
+                )
+                test_cases.append(error_case)
+                counter += 1
+        else:
+            # Para HUs tradicionales, agregar casos globales estándar
+            # Caso de estado vacío general
+            empty_state_case = self._generate_general_empty_state_case(
+                test_number=counter,
+                project_name=project_name
+            )
+            test_cases.append(empty_state_case)
+            counter += 1
+            
+            # Caso de error 500 del backend
+            error_500_case = self._generate_backend_error_case(
+                test_number=counter,
+                project_name=project_name,
+                error_code=500
+            )
+            test_cases.append(error_500_case)
+            counter += 1
+            
+            # Caso de error 404 del backend
+            error_404_case = self._generate_backend_error_case(
+                test_number=counter,
+                project_name=project_name,
+                error_code=404
+            )
+            test_cases.append(error_404_case)
+            counter += 1
         
         return test_cases
     
     # ========== MÉTODOS AUXILIARES PARA GENERAR CASOS ESPECÍFICOS ==========
     
-    def _generate_happy_path_case(self, criterion: str, test_number: int, project_name: str) -> TestCase:
-        """Genera caso feliz (happy path) para un criterio"""
-        # Extraer objetivo del criterio
-        objective = self._extract_objective_from_criterion(criterion)
+    def _generate_happy_path_case(self, criterion: str, test_number: int, project_name: str, parsed_story=None) -> TestCase:
+        """Genera caso feliz (happy path) para un criterio usando contexto real de la HU"""
+        # Extraer objetivo del criterio (más específico)
+        objective = self._extract_objective_from_criterion(criterion, parsed_story)
         
-        # Título corto y descriptivo
-        title = self._generate_short_title(criterion, "Visualización/Renderizado")
+        # Título específico basado en el criterio y contexto
+        title = self._generate_contextual_title(criterion, parsed_story)
         
-        # Precondiciones específicas
-        preconditions = self._generate_specific_preconditions(criterion)
+        # Precondiciones específicas usando contexto de la HU
+        preconditions = self._generate_contextual_preconditions(criterion, parsed_story)
         
-        # Pasos específicos
-        steps = self._generate_specific_steps(criterion, "happy_path")
+        # Pasos específicos usando contexto y flujos de la HU
+        steps = self._generate_contextual_steps(criterion, "happy_path", parsed_story)
         
-        # Resultado esperado específico
-        expected_result = self._generate_specific_expected_result(criterion, "happy_path")
+        # Resultado esperado específico basado en el criterio y contexto
+        expected_result = self._generate_contextual_expected_result(criterion, "happy_path", parsed_story)
         
         return TestCase(
             id=f"TC-{test_number:03d}",
@@ -1241,22 +1275,46 @@ class ProfessionalQAGenerator:
     
     # ========== MÉTODOS AUXILIARES PARA EXTRAER INFORMACIÓN ==========
     
-    def _extract_objective_from_criterion(self, criterion: str) -> str:
-        """Extrae el objetivo del criterio"""
+    def _extract_objective_from_criterion(self, criterion: str, parsed_story=None) -> str:
+        """Extrae el objetivo del criterio usando contexto de la HU"""
         criterion_lower = criterion.lower()
         
-        if "muestra" in criterion_lower or "visualiza" in criterion_lower:
-            return "Validar que la información se muestra correctamente"
-        elif "abre" in criterion_lower or "abrir" in criterion_lower:
-            return "Validar que los recursos se abren correctamente"
-        elif "guarda" in criterion_lower or "almacena" in criterion_lower:
-            return "Validar que los datos se guardan correctamente"
-        elif "valida" in criterion_lower or "verifica" in criterion_lower:
-            return "Validar que las validaciones funcionan correctamente"
-        elif "copiar" in criterion_lower or "copy" in criterion_lower:
-            return "Validar que la funcionalidad de copiar funciona correctamente"
+        # Si tenemos contexto, usarlo para hacer el objetivo más específico
+        if parsed_story and parsed_story.description:
+            # Extraer palabras clave del contexto
+            context_keywords = []
+            if "botón" in parsed_story.description.lower() or "button" in parsed_story.description.lower():
+                context_keywords.append("botón")
+            if "modal" in parsed_story.description.lower() or "popup" in parsed_story.description.lower():
+                context_keywords.append("modal")
+            if "tabla" in parsed_story.description.lower() or "table" in parsed_story.description.lower():
+                context_keywords.append("tabla")
+            
+            context_suffix = f" relacionado con {', '.join(context_keywords)}" if context_keywords else ""
         else:
-            return "Validar funcionalidad del sistema según el criterio"
+            context_suffix = ""
+        
+        if "muestra" in criterion_lower or "visualiza" in criterion_lower or "aparece" in criterion_lower or "sale" in criterion_lower:
+            return f"Validar que la información se muestra correctamente{context_suffix}"
+        elif "abre" in criterion_lower or "abrir" in criterion_lower:
+            return f"Validar que los recursos se abren correctamente{context_suffix}"
+        elif "guarda" in criterion_lower or "almacena" in criterion_lower or "persiste" in criterion_lower:
+            return f"Validar que los datos se guardan correctamente{context_suffix}"
+        elif "valida" in criterion_lower or "verifica" in criterion_lower:
+            return f"Validar que las validaciones funcionan correctamente{context_suffix}"
+        elif "copiar" in criterion_lower or "copy" in criterion_lower:
+            return f"Validar que la funcionalidad de copiar funciona correctamente{context_suffix}"
+        elif "crear" in criterion_lower or "crea" in criterion_lower:
+            return f"Validar que la funcionalidad de crear funciona correctamente{context_suffix}"
+        elif "seleccionar" in criterion_lower or "selecciona" in criterion_lower:
+            return f"Validar que la funcionalidad de seleccionar funciona correctamente{context_suffix}"
+        else:
+            # Intentar extraer el verbo principal del criterio
+            words = criterion.split()
+            if len(words) > 0:
+                first_verb = words[0] if words[0] else "ejecutar"
+                return f"Validar que {first_verb.lower()} funciona correctamente según el criterio{context_suffix}"
+            return f"Validar funcionalidad del sistema según el criterio{context_suffix}"
     
     def _generate_short_title(self, criterion: str, prefix: str = "") -> str:
         """Genera un título corto del caso de prueba"""
@@ -1269,6 +1327,77 @@ class ProfessionalQAGenerator:
         if prefix:
             return f"{prefix}: {short_desc}"
         return short_desc
+    
+    def _generate_contextual_title(self, criterion: str, parsed_story=None) -> str:
+        """Genera un título específico usando el contexto de la HU"""
+        criterion_lower = criterion.lower()
+        
+        # Extraer elementos específicos del criterio
+        if "botón" in criterion_lower or "button" in criterion_lower:
+            # Buscar el nombre del botón
+            button_match = re.search(r'(?:botón|button)[:\s]*["\']?([^"\'\n\.]+)["\']?', criterion, re.IGNORECASE)
+            if button_match:
+                button_name = button_match.group(1).strip()
+                return f"Verificar botón '{button_name}' según criterio"
+        
+        if "modal" in criterion_lower or "popup" in criterion_lower or "pop-up" in criterion_lower:
+            return f"Verificar modal/popup según criterio"
+        
+        if "tabla" in criterion_lower or "table" in criterion_lower:
+            return f"Verificar tabla según criterio"
+        
+        if "crear" in criterion_lower or "crea" in criterion_lower:
+            # Buscar qué se crea
+            create_match = re.search(r'crear\s+([^\.\n]+)', criterion_lower)
+            if create_match:
+                what = create_match.group(1).strip()[:30]
+                return f"Verificar creación de {what}"
+            return "Verificar funcionalidad de crear"
+        
+        if "seleccionar" in criterion_lower or "selecciona" in criterion_lower:
+            # Buscar qué se selecciona
+            select_match = re.search(r'seleccionar\s+([^\.\n]+)', criterion_lower)
+            if select_match:
+                what = select_match.group(1).strip()[:30]
+                return f"Verificar selección de {what}"
+            return "Verificar funcionalidad de seleccionar"
+        
+        # Si hay contexto de la HU, usar el título del proyecto
+        if parsed_story and parsed_story.title:
+            # Extraer acción principal del criterio
+            action = self._extract_main_action(criterion)
+            return f"{action} - {parsed_story.title[:40]}"
+        
+        # Fallback: usar primeras palabras del criterio
+        words = criterion.split()[:6]
+        return " ".join(words) + ("..." if len(criterion) > len(" ".join(words)) else "")
+    
+    def _extract_main_action(self, criterion: str) -> str:
+        """Extrae la acción principal del criterio"""
+        criterion_lower = criterion.lower()
+        
+        action_map = {
+            "muestra": "Verificar visualización",
+            "visualiza": "Verificar visualización",
+            "aparece": "Verificar aparición",
+            "sale": "Verificar aparición",
+            "crea": "Verificar creación",
+            "crear": "Verificar creación",
+            "guarda": "Verificar guardado",
+            "almacena": "Verificar almacenamiento",
+            "valida": "Verificar validación",
+            "verifica": "Verificar verificación",
+            "selecciona": "Verificar selección",
+            "seleccionar": "Verificar selección",
+            "abre": "Verificar apertura",
+            "abrir": "Verificar apertura",
+        }
+        
+        for key, value in action_map.items():
+            if key in criterion_lower:
+                return value
+        
+        return "Verificar funcionalidad"
     
     def _generate_specific_preconditions(self, criterion: str) -> List[str]:
         """Genera precondiciones específicas basadas en el criterio"""
@@ -1285,6 +1414,60 @@ class ProfessionalQAGenerator:
             preconditions.append("El recurso (PDF/XML) debe estar disponible en el backend")
         if "vacío" in criterion_lower or "empty" in criterion_lower:
             preconditions.append("No deben existir datos asociados")
+        
+        return preconditions
+    
+    def _generate_contextual_preconditions(self, criterion: str, parsed_story=None) -> List[str]:
+        """Genera precondiciones específicas usando contexto de la HU"""
+        preconditions = []
+        criterion_lower = criterion.lower()
+        
+        # Precondiciones base
+        preconditions.append("El sistema está operativo y accesible")
+        
+        # Extraer precondiciones del contexto de la HU
+        if parsed_story:
+            # Si hay contexto, extraer información relevante
+            if parsed_story.context:
+                # Buscar condiciones específicas en el contexto
+                if "usuario" in parsed_story.context.lower():
+                    preconditions.append("El usuario está autenticado y tiene acceso al sistema")
+                if "datos" in parsed_story.context.lower() or "data" in parsed_story.context.lower():
+                    preconditions.append("Los datos de prueba están disponibles")
+            
+            # Usar estados extraídos
+            if parsed_story.states:
+                for state in parsed_story.states[:2]:  # Primeros 2 estados
+                    if "onboarding" in state.lower():
+                        preconditions.append("El usuario no ha completado el onboarding")
+                    elif "configuración" in state.lower():
+                        preconditions.append("El usuario está en el proceso de configuración")
+        else:
+            preconditions.append("El usuario tiene los permisos necesarios")
+        
+        # Precondiciones específicas del criterio
+        if "5 sedes" in criterion_lower or "sedes" in criterion_lower:
+            preconditions.append("El usuario tiene 5 o más sedes configuradas")
+        if "grupos" in criterion_lower:
+            if "no tiene grupos" in criterion_lower or "sin grupos" in criterion_lower:
+                preconditions.append("El usuario no tiene grupos creados")
+            else:
+                preconditions.append("El usuario tiene grupos configurados")
+        if "todas las sedes" in criterion_lower or "todas sedes" in criterion_lower:
+            preconditions.append("El usuario tiene 'Todas' las sedes seleccionadas")
+        if "botón" in criterion_lower or "button" in criterion_lower:
+            preconditions.append("El botón debe estar visible en la interfaz")
+        if "modal" in criterion_lower or "popup" in criterion_lower or "pop-up" in criterion_lower:
+            preconditions.append("El modal/popup debe poder abrirse")
+        if "tabla" in criterion_lower:
+            preconditions.append("Debe existir al menos un registro en la tabla")
+        if "vacío" in criterion_lower or "empty" in criterion_lower or "no hay" in criterion_lower:
+            preconditions.append("No deben existir datos asociados")
+        
+        # Si no hay precondiciones específicas, agregar genéricas
+        if len(preconditions) < 2:
+            preconditions.append("El usuario tiene los permisos necesarios")
+            preconditions.append("Los datos de prueba están disponibles")
         
         return preconditions
     
@@ -1314,6 +1497,136 @@ class ProfessionalQAGenerator:
             "Then el sistema responde correctamente"
         ]
     
+    def _generate_contextual_steps(self, criterion: str, case_type: str, parsed_story=None) -> List[str]:
+        """Genera pasos específicos usando contexto de la HU y flujos extraídos"""
+        steps = []
+        criterion_lower = criterion.lower()
+        
+        # Given: usar contexto de la HU
+        if parsed_story and parsed_story.context:
+            # Extraer información del contexto
+            if "análisis" in parsed_story.context.lower() or "análisis" in criterion_lower:
+                steps.append("Given que el usuario está en la sección 'Análisis'")
+            else:
+                steps.append("Given que el usuario accede al módulo correspondiente")
+        else:
+            steps.append("Given que el usuario accede al módulo correspondiente")
+        
+        # When: extraer acción específica del criterio
+        action_step = self._extract_action_step_from_criterion(criterion, parsed_story)
+        steps.append(f"When {action_step}")
+        
+        # And: pasos adicionales basados en el criterio
+        additional_steps = self._extract_additional_steps_from_criterion(criterion, parsed_story)
+        steps.extend(additional_steps)
+        
+        # Then: resultado esperado específico
+        result_step = self._extract_result_step_from_criterion(criterion, parsed_story)
+        steps.append(f"Then {result_step}")
+        
+        return steps
+    
+    def _extract_action_step_from_criterion(self, criterion: str, parsed_story=None) -> str:
+        """Extrae el paso de acción del criterio"""
+        criterion_lower = criterion.lower()
+        
+        # Buscar acciones específicas
+        if "al darle" in criterion_lower or "al dar" in criterion_lower:
+            # Extraer qué acción se hace
+            action_match = re.search(r'al\s+darle?\s+["\']?([^"\'\n\.]+)["\']?', criterion, re.IGNORECASE)
+            if action_match:
+                action = action_match.group(1).strip()
+                return f"el usuario hace clic en '{action}'"
+        
+        if "crear" in criterion_lower or "crea" in criterion_lower:
+            if "grupo" in criterion_lower:
+                return "el usuario hace clic en el botón 'Crear Grupo'"
+            return "el usuario inicia el proceso de creación"
+        
+        if "seleccionar" in criterion_lower or "selecciona" in criterion_lower:
+            # Buscar qué se selecciona
+            select_match = re.search(r'seleccionar\s+([^\.\n]+)', criterion_lower)
+            if select_match:
+                what = select_match.group(1).strip()[:40]
+                return f"el usuario selecciona {what}"
+            return "el usuario realiza una selección"
+        
+        if "muestra" in criterion_lower or "aparece" in criterion_lower or "sale" in criterion_lower:
+            if "botón" in criterion_lower:
+                return "el sistema evalúa las condiciones para mostrar el botón"
+            return "el sistema carga y procesa la información"
+        
+        if "abre" in criterion_lower or "abrir" in criterion_lower:
+            return "el usuario hace clic en el elemento para abrir"
+        
+        # Usar flujos de la HU si están disponibles
+        if parsed_story and parsed_story.user_flows:
+            # Buscar flujo relevante
+            for flow in parsed_story.user_flows:
+                if any(word in flow.lower() for word in criterion_lower.split()[:3]):
+                    # Extraer acción del flujo
+                    flow_lower = flow.lower()
+                    if "darle" in flow_lower or "dar" in flow_lower:
+                        return f"el usuario {flow[:60]}"
+        
+        return "el usuario ejecuta la acción correspondiente"
+    
+    def _extract_additional_steps_from_criterion(self, criterion: str, parsed_story=None) -> List[str]:
+        """Extrae pasos adicionales del criterio"""
+        additional = []
+        criterion_lower = criterion.lower()
+        
+        # Buscar condiciones específicas
+        if "si el usuario" in criterion_lower or "cuando el usuario" in criterion_lower:
+            # Extraer condición
+            condition_match = re.search(r'(?:si|cuando)\s+el\s+usuario\s+([^\.]+)', criterion_lower)
+            if condition_match:
+                condition = condition_match.group(1).strip()
+                additional.append(f"And el usuario {condition}")
+        
+        if "5 sedes" in criterion_lower:
+            additional.append("And el usuario tiene 5 o más sedes configuradas")
+        if "no tiene grupos" in criterion_lower:
+            additional.append("And el usuario no tiene grupos creados")
+        if "todas las sedes" in criterion_lower:
+            additional.append("And el usuario tiene 'Todas' las sedes seleccionadas")
+        
+        return additional
+    
+    def _extract_result_step_from_criterion(self, criterion: str, parsed_story=None) -> str:
+        """Extrae el resultado esperado del criterio"""
+        criterion_lower = criterion.lower()
+        
+        # Buscar resultados específicos
+        if "muestra" in criterion_lower or "aparece" in criterion_lower or "sale" in criterion_lower:
+            if "botón" in criterion_lower:
+                # Buscar nombre del botón
+                button_match = re.search(r'(?:botón|button)[:\s]*["\']?([^"\'\n\.]+)["\']?', criterion, re.IGNORECASE)
+                if button_match:
+                    button_name = button_match.group(1).strip()
+                    return f"el botón '{button_name}' se muestra correctamente"
+                return "el botón se muestra según las condiciones especificadas"
+            return "la información se muestra correctamente"
+        
+        if "abre" in criterion_lower or "abrir" in criterion_lower:
+            if "pop-up" in criterion_lower or "popup" in criterion_lower or "modal" in criterion_lower:
+                return "se abre el modal/pop-up correctamente"
+            return "se abre el recurso correctamente"
+        
+        if "crear" in criterion_lower or "crea" in criterion_lower:
+            if "grupo" in criterion_lower:
+                return "se abre el pop-up de creación de grupo sin sedes pre-seleccionadas"
+            return "se completa el proceso de creación correctamente"
+        
+        if "seleccionar" in criterion_lower or "selecciona" in criterion_lower:
+            return "la selección se realiza correctamente"
+        
+        # Usar el criterio directamente si es descriptivo
+        if len(criterion) < 100:
+            return f"el sistema cumple con: {criterion[:80]}"
+        
+        return "el sistema responde correctamente según el criterio"
+    
     def _generate_specific_expected_result(self, criterion: str, case_type: str) -> str:
         """Genera resultado esperado específico"""
         criterion_lower = criterion.lower()
@@ -1327,6 +1640,79 @@ class ProfessionalQAGenerator:
                 return "Los datos se guardan correctamente y se muestra confirmación exitosa"
         
         return "El sistema cumple con el criterio especificado"
+    
+    def _generate_contextual_expected_result(self, criterion: str, case_type: str, parsed_story=None) -> str:
+        """Genera resultado esperado específico usando contexto de la HU"""
+        criterion_lower = criterion.lower()
+        
+        # Construir resultado basado en el criterio específico
+        result_parts = []
+        
+        # Extraer resultado específico del criterio
+        if "muestra" in criterion_lower or "aparece" in criterion_lower or "sale" in criterion_lower:
+            if "botón" in criterion_lower:
+                button_match = re.search(r'(?:botón|button)[:\s]*["\']?([^"\'\n\.]+)["\']?', criterion, re.IGNORECASE)
+                if button_match:
+                    button_name = button_match.group(1).strip()
+                    result_parts.append(f"El botón '{button_name}' se muestra correctamente")
+                else:
+                    result_parts.append("El botón se muestra según las condiciones especificadas")
+                
+                # Agregar condiciones específicas
+                if "5 sedes" in criterion_lower:
+                    result_parts.append("solo si el usuario tiene 5 o más sedes")
+                if "no tiene grupos" in criterion_lower:
+                    result_parts.append("solo si el usuario no tiene grupos creados")
+                if "todas las sedes" in criterion_lower:
+                    result_parts.append("solo si el usuario tiene 'Todas' las sedes seleccionadas")
+            else:
+                result_parts.append("La información se muestra correctamente")
+        
+        elif "abre" in criterion_lower or "abrir" in criterion_lower:
+            if "pop-up" in criterion_lower or "popup" in criterion_lower or "modal" in criterion_lower:
+                if "crear grupo" in criterion_lower:
+                    result_parts.append("Se abre el pop-up de creación de grupo")
+                    result_parts.append("sin ninguna sede pre-seleccionada")
+                else:
+                    result_parts.append("Se abre el modal/pop-up correctamente")
+            else:
+                result_parts.append("Se abre el recurso correctamente")
+        
+        elif "crear" in criterion_lower or "crea" in criterion_lower:
+            if "grupo" in criterion_lower:
+                result_parts.append("Se crea el grupo correctamente")
+                if "pre-selecciona" in criterion_lower or "pre selecciona" in criterion_lower:
+                    result_parts.append("y se pre-selecciona en el breadcrumb de las sedes")
+            else:
+                result_parts.append("Se completa el proceso de creación correctamente")
+        
+        elif "seleccionar" in criterion_lower or "selecciona" in criterion_lower:
+            result_parts.append("La selección se realiza correctamente")
+            if "sedes" in criterion_lower:
+                result_parts.append("y las sedes seleccionadas se reflejan en la interfaz")
+        
+        elif "no se muestra" in criterion_lower or "no muestra" in criterion_lower:
+            if "menos de 5 sedes" in criterion_lower:
+                result_parts.append("El botón NO se muestra si el usuario tiene menos de 5 sedes")
+            if "grupos creados" in criterion_lower:
+                result_parts.append("El botón NO se muestra si el usuario ya tiene grupos creados")
+        
+        # Si no hay resultado específico, usar el criterio directamente
+        if not result_parts:
+            # Usar el criterio pero hacerlo más específico
+            if len(criterion) < 150:
+                result_parts.append(f"El sistema cumple con: {criterion}")
+            else:
+                # Extraer parte clave del criterio
+                words = criterion.split()[:15]
+                result_parts.append(f"El sistema cumple con: {' '.join(words)}...")
+        
+        # Agregar validaciones adicionales
+        if case_type == "happy_path":
+            result_parts.append("No se presentan errores en el proceso")
+            result_parts.append("La interfaz responde correctamente")
+        
+        return ". ".join(result_parts) + "."
     
     def _extract_action_from_criterion(self, criterion: str) -> str:
         """Extrae la acción principal del criterio"""
