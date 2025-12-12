@@ -1,8 +1,48 @@
 {% extends "base.html" %}
 
-{% block title %}{{ project.name }} - Sistema QA{% endblock %}
+{% block title %}{{ project.name }} - Test Automation{% endblock %}
 
 {% block content %}
+<style>
+    /* Estilos para tarjetas de casos de prueba modernas */
+    .test-case-card-modern {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none !important;
+        border-top: none !important;
+        border-bottom: none !important;
+        border-left: none !important;
+        border-right: none !important;
+    }
+    
+    .test-case-card-modern::before {
+        display: none !important;
+        content: none !important;
+    }
+    
+    .test-case-card-modern .card-body {
+        border: none !important;
+        border-top: none !important;
+    }
+    
+    .test-case-card-modern:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08) !important;
+    }
+    
+    .test-case-card-modern .btn:hover {
+        transform: translateY(-1px);
+    }
+    
+    .test-case-card-modern .btn[style*="background: linear-gradient"]:hover {
+        box-shadow: 0 6px 16px rgba(76, 29, 149, 0.35) !important;
+    }
+    
+    .test-case-card-modern .btn[style*="border: 2px solid #dc2626"]:hover {
+        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%) !important;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
+    }
+</style>
 <!-- Diseño en dos columnas inspirado en la imagen -->
 <div class="row g-4">
     <!-- COLUMNA IZQUIERDA -->
@@ -13,7 +53,7 @@
                 <h5 class="mb-4" style="display: flex; align-items: center; gap: 0.75rem;">
                     <span style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
                         <i class="fas fa-info-circle"></i>
-                    </span>
+                        </span>
                     <strong>Información del Proyecto</strong>
                 </h5>
                 
@@ -36,9 +76,9 @@
                         <button class="btn btn-sm" onclick="copiarAlPortapapeles('{{ project.id }}')" style="background: #ede9fe; border: none; color: #6366f1; padding: 0.25rem 0.5rem; border-radius: 6px;" title="Copiar ID">
                             <i class="fas fa-copy"></i>
                         </button>
-                    </div>
+            </div>
                     <small class="text-muted">Identificador único</small>
-                </div>
+                    </div>
                 
                 <!-- HU LINEAR -->
                 <div class="mb-0">
@@ -55,17 +95,17 @@
                                style="border: 2px solid #e2e8f0; font-family: 'Courier New', monospace;">
                         <button class="btn" onclick="guardarHuId('{{ project.id }}')" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: white; border: none; border-radius: 0 8px 8px 0;">
                             <i class="fas fa-save me-1"></i>
-                        </button>
-                    </div>
+                            </button>
+                        </div>
                     <small class="text-muted mt-1 d-block">
                         <i class="fas fa-info-circle me-1"></i>
                         Ingresa el ID de la Historia de Usuario en Linear
                     </small>
-                </div>
-            </div>
         </div>
-        
-        <!-- Historia de Usuario -->
+    </div>
+</div>
+
+    <!-- Historia de Usuario -->
         <div class="card shadow-sm" style="border-radius: 16px;">
             <div class="card-body p-4">
                 <h5 class="mb-4" style="display: flex; align-items: center; gap: 0.75rem;">
@@ -119,7 +159,7 @@
                     <div class="text-center py-4">
                         <i class="fas fa-exclamation-circle text-muted" style="font-size: 3rem; opacity: 0.3;"></i>
                         <p class="text-muted mt-3 mb-0">Primero genera casos de prueba para poder exportarlos.</p>
-                    </div>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -134,12 +174,12 @@
                     <div class="d-flex align-items-center gap-3 p-3" style="background: rgba(99, 102, 241, 0.1); border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
                         <div style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                             <i class="fas fa-chevron-right"></i>
-                        </div>
+            </div>
                         <div>
                             <strong style="font-size: 0.95rem;">Validar entrada</strong>
-                        </div>
                     </div>
-                    
+                </div>
+                
                     <!-- Paso 2 -->
                     <div class="d-flex align-items-center gap-3 p-3" style="background: rgba(99, 102, 241, 0.1); border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
                         <div style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
@@ -147,9 +187,9 @@
                         </div>
                         <div>
                             <strong style="font-size: 0.95rem;">Generar casos</strong>
-                        </div>
                     </div>
-                    
+                </div>
+                
                     <!-- Paso 3 -->
                     <div class="d-flex align-items-center gap-3 p-3" style="background: rgba(99, 102, 241, 0.1); border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
                         <div style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
@@ -191,41 +231,62 @@
 {% if project.test_cases %}
 <div class="row mt-4">
     <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light border-bottom">
-                <h4 class="mb-0 text-dark">
-                    <i class="fas fa-list-check me-2 text-success"></i>Casos de Prueba Generados ({{ project.test_cases|length }})
+        <div class="card shadow-sm" style="border-radius: 16px; border: none; overflow: hidden;">
+            <div class="card-header" style="background: white; border: none; border-bottom: 1px solid #e2e8f0; padding: 1.5rem;">
+                <h4 class="mb-0" style="display: flex; align-items: center; gap: 0.75rem; font-weight: 700; color: #1f2937;">
+                    <span style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(76, 29, 149, 0.3);">
+                        <i class="fas fa-list-check" style="color: #10d9c4;"></i>
+                    </span>
+                    Casos de Prueba Generados ({{ project.test_cases|length }})
                 </h4>
             </div>
-            <div class="card-body">
-                <div class="row g-3">
+            <div class="card-body p-4" style="background: #f8fafc;">
+                <div class="row g-4">
                     {% for test_case in project.test_cases %}
-                    <div class="col-xxl-3 col-xl-4 col-lg-6 mb-3">
-                        <div class="card test-case-card h-100">
-                            <div class="card-body">
-                                <h6 class="card-title">
-                                    <span class="badge bg-secondary me-2">{{ test_case.id }}</span>
+                    <div class="col-xxl-3 col-xl-4 col-lg-6">
+                        <div class="card h-100 test-case-card-modern" style="border-radius: 14px; border: none !important; border-top: none !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.05); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); background: white; overflow: hidden;">
+                            <div class="card-body p-4" style="display: flex; flex-direction: column; height: 100%;">
+                                <!-- Header con ID -->
+                                <div class="d-flex align-items-start justify-content-between mb-3" style="border: none;">
+                                    <span class="badge" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: white; padding: 0.5rem 0.75rem; border-radius: 8px; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.5px;">
+                                        {{ test_case.id }}
+                                    </span>
+                                </div>
+                                
+                                <!-- Título -->
+                                <h6 class="card-title mb-3" style="font-weight: 600; color: #1f2937; font-size: 0.95rem; line-height: 1.4; flex-grow: 0; word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">
                                     {{ test_case.title }}
                                 </h6>
                                 
-                                <p class="card-text text-muted small">{{ test_case.description[:150] }}{% if test_case.description|length > 150 %}...{% endif %}</p>
+                                <!-- Descripción -->
+                                <div class="mb-3" style="flex-grow: 1; min-height: 80px;">
+                                    <div style="background: #f8fafc; border-radius: 10px; padding: 1rem; border-left: 3px solid #6366f1; font-size: 0.85rem; line-height: 1.6; color: #4b5563; max-height: 120px; overflow: hidden;">
+                                        {% if test_case.description %}
+                                            {% set desc = test_case.description[:200] %}
+                                            {{ desc }}{% if test_case.description|length > 200 %}...{% endif %}
+                                        {% else %}
+                                            <span class="text-muted">Sin descripción</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
                                 
-                                <div class="mb-3">
-                                    <span class="badge bg-{{ 'danger' if test_case.priority == 'Alta' else 'warning' if test_case.priority == 'Media' else 'secondary' }}">
-                                        <i class="fas fa-flag"></i> {{ test_case.priority }}
+                                <!-- Badges de Prioridad y Tipo -->
+                                <div class="mb-3 d-flex flex-wrap gap-2">
+                                    <span class="badge" style="background: {% if test_case.priority == 'Alta' %}linear-gradient(135deg, #dc2626 0%, #ef4444 100%){% elif test_case.priority == 'Media' %}linear-gradient(135deg, #d97706 0%, #f59e0b 100%){% else %}linear-gradient(135deg, #6b7280 0%, #9ca3af 100%){% endif %}; color: white; padding: 0.4rem 0.7rem; border-radius: 8px; font-weight: 600; font-size: 0.75rem; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);">
+                                        <i class="fas fa-flag me-1"></i> {{ test_case.priority }}
                                     </span>
-                                    <span class="badge bg-info">
-                                        <i class="fas fa-tag"></i> {{ test_case.test_type }}
+                                    <span class="badge" style="background: linear-gradient(135deg, #10d9c4 0%, #0ea5a5 100%); color: white; padding: 0.4rem 0.7rem; border-radius: 8px; font-weight: 600; font-size: 0.75rem; box-shadow: 0 2px 6px rgba(16, 217, 196, 0.3);">
+                                        <i class="fas fa-tag me-1"></i> {{ test_case.test_type }}
                                     </span>
                                 </div>
                                 
                                 <!-- Botones de acción -->
-                                <div class="mt-3 d-flex gap-2">
-                                    <button class="btn btn-sm btn-outline-primary" onclick="editarCaso('{{ project.id }}', '{{ test_case.id }}')">
-                                        <i class="fas fa-edit"></i> Editar
+                                <div class="mt-auto d-flex gap-2">
+                                    <button class="btn btn-sm flex-fill" onclick="editarCaso('{{ project.id }}', '{{ test_case.id }}')" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: white; border: none; border-radius: 10px; padding: 0.625rem 1rem; font-weight: 600; box-shadow: 0 4px 12px rgba(76, 29, 149, 0.25); transition: all 0.3s;">
+                                        <i class="fas fa-edit me-1"></i> Editar
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarCaso('{{ project.id }}', '{{ test_case.id }}', '{{ test_case.title }}')">
-                                        <i class="fas fa-trash"></i> Eliminar
+                                    <button class="btn btn-sm flex-fill" onclick="eliminarCaso('{{ project.id }}', '{{ test_case.id }}', '{{ test_case.title }}')" style="background: transparent; color: #dc2626; border: 2px solid #dc2626; border-radius: 10px; padding: 0.625rem 1rem; font-weight: 600; transition: all 0.3s;">
+                                        <i class="fas fa-trash me-1"></i> Eliminar
                                     </button>
                                 </div>
                             </div>
@@ -338,50 +399,75 @@ function abrirModalLinear(projectId, linearHuId) {
         return;
     }
     
-    // Crear modal
+    // Crear modal moderno
     const modalHTML = `
         <div class="modal fade" id="modalLinear" tabindex="-1">
-            <div class="modal-dialog">
-        <div class="modal-content">
-                    <div class="modal-header bg-warning text-dark">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: white; border-radius: 16px 16px 0 0;">
                         <h5 class="modal-title">
                             <i class="fas fa-rocket"></i> Subir Casos a Linear
                         </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                        <div class="alert alert-info">
-                            <strong>📋 Configuración:</strong>
-                            <ul class="mt-2 mb-0">
-                                <li>🎯 HU: <strong>${linearHuId}</strong></li>
-                                <li>🏢 Equipo: Auto-detectado</li>
-                                <li>⚡ Subida directa via API</li>
-                </ul>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    
-                    <div class="mb-3">
-                            <label for="apiKeyInput" class="form-label">
-                                <i class="fas fa-key"></i> API Key de Linear
+                    <div class="modal-body" style="padding: 2rem;">
+                        <!-- SECCIÓN 1: CONTEXTO (Información no editable) -->
+                        <div class="mb-4">
+                            <div style="background: rgba(99, 102, 241, 0.08); border-left: 4px solid #6366f1; border-radius: 8px; padding: 1rem 1.25rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                    <i class="fas fa-info-circle" style="color: #6366f1; font-size: 0.9rem;"></i>
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: #4c1d95; text-transform: uppercase; letter-spacing: 0.5px;">Configuración</span>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.9rem; color: #1f2937; line-height: 1.6;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="color: #6b7280; font-weight: 500;">HU:</span>
+                                        <code style="background: white; padding: 0.25rem 0.5rem; border-radius: 4px; color: #6366f1; font-weight: 600; font-size: 0.85rem;">${linearHuId}</code>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="color: #6b7280; font-weight: 500;">Equipo:</span>
+                                        <span style="color: #1f2937;">Auto-detectado</span>
+            </div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="color: #6b7280; font-weight: 500;">Método:</span>
+                                        <span style="color: #1f2937;">Subida directa via API</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+                        <!-- SECCIÓN 2: CREDENCIALES (Campo editable) -->
+                        <div class="mb-4">
+                            <label for="apiKeyInput" class="form-label" style="display: block; font-weight: 600; color: #1f2937; margin-bottom: 0.5rem; font-size: 0.95rem;">
+                                API Key de Linear
                             </label>
                             <input type="password" class="form-control" id="apiKeyInput" 
-                                   placeholder="lin_api_xxxxxxxxxxxxxxxxxxxxxxxx" required>
-                            <small class="form-text text-muted">
-                                Obtén tu API Key en: Linear → Settings → API
+                                   placeholder="lin_api_xxxxxxxxxxxxxxxxxxxxxxxx" required
+                                   style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 0.75rem; font-family: 'Courier New', monospace; font-size: 0.9rem; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99, 102, 241, 0.1)'"
+                                   onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none'">
+                            <small class="form-text text-muted" style="display: block; margin-top: 0.5rem; font-size: 0.8rem; color: #6b7280; line-height: 1.5;">
+                                Obtén tu API Key en: <strong>Linear → Settings → API</strong>
                             </small>
-                            <div class="form-check mt-2">
-                                <input class="form-check-input" type="checkbox" id="guardarApiKeyCheck" checked>
-                                <label class="form-check-label small" for="guardarApiKeyCheck">
-                                    <i class="fas fa-save"></i> Guardar API Key para próximas veces
+                        </div>
+                        
+                        <!-- SECCIÓN 3: PREFERENCIAS (Checkbox simple, visualmente secundario) -->
+                        <div class="mb-0">
+                            <div class="form-check" style="padding: 0; display: flex; align-items: center; gap: 0.5rem;">
+                                <input class="form-check-input" type="checkbox" id="guardarApiKeyCheck" checked style="cursor: pointer; margin: 0; flex-shrink: 0;">
+                                <label class="form-check-label" for="guardarApiKeyCheck" style="cursor: pointer; color: #6b7280; font-size: 0.9rem; font-weight: 400; line-height: 1.5; margin: 0;">
+                                    Guardar API Key para próximas veces
                                 </label>
+                            </div>
+                        </div>
                     </div>
+                    <div class="modal-footer" style="background: #f8fafc; border-radius: 0 0 16px 16px; padding: 1.25rem 2rem; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 0.75rem;">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 8px; padding: 0.625rem 1.25rem; font-weight: 500; border: 2px solid #e2e8f0; color: #6b7280; background: white;">
+                            Cancelar
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="subirALinear('${projectId}', '${linearHuId}')" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); border: none; border-radius: 8px; padding: 0.625rem 1.5rem; font-weight: 600; box-shadow: 0 4px 12px rgba(76, 29, 149, 0.25); min-width: 140px;">
+                            <i class="fas fa-upload me-1"></i> Subir Ahora
+                        </button>
                     </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-warning" onclick="subirALinear('${projectId}', '${linearHuId}')">
-                            <i class="fas fa-upload"></i> Subir Ahora
-                </button>
-            </div>
         </div>
     </div>
 </div>
@@ -473,59 +559,168 @@ async function subirALinear(projectId, linearHuId) {
 
 // FUNCIÓN AUXILIAR: MOSTRAR ALERTAS
 function showAlert(message, type) {
+    // Remover TODAS las alertas anteriores (cualquier alerta position-fixed)
+    const existingAlerts = document.querySelectorAll('.position-fixed.alert, .alert-position-fixed, .alert[style*="position: fixed"]');
+    existingAlerts.forEach(alert => {
+        alert.style.opacity = '0';
+        alert.style.transform = 'translateX(-50%) translateY(-20px)';
+        setTimeout(() => alert.remove(), 100);
+    });
+    
     const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
-    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed alert-position-fixed`;
+    
+    // Mejorar posición: arriba al centro, no bloquea botones
+    // FORZAR estilos con !important para evitar sobrescritura
+    // Diseño mejorado con mejor espaciado y padding
+    alertDiv.setAttribute('style', `
+        position: fixed !important;
+        top: 80px !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        z-index: 10000 !important;
+        max-width: 600px !important;
+        min-width: 380px !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        border-radius: 14px !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+    `);
+    
+    // Agregar animación CSS si no existe
+    if (!document.getElementById('alert-animation-style')) {
+        const style = document.createElement('style');
+        style.id = 'alert-animation-style';
+        style.textContent = `
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(-20px) !important;
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0) !important;
+                }
+            }
+            .alert-position-fixed {
+                pointer-events: auto !important;
+                animation: slideDown 0.3s ease-out !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Determinar título según el tipo de alerta
+    let alertTitle = 'Notificación';
+    let alertIcon = 'fa-info-circle';
+    if (type === 'success') {
+        alertTitle = 'Éxito';
+        alertIcon = 'fa-check-circle';
+    } else if (type === 'danger' || type === 'error') {
+        alertTitle = 'Error';
+        alertIcon = 'fa-exclamation-triangle';
+    } else if (type === 'warning') {
+        alertTitle = 'Advertencia';
+        alertIcon = 'fa-exclamation-circle';
+    } else if (type === 'info') {
+        alertTitle = 'Información';
+        alertIcon = 'fa-info-circle';
+    }
+    
     alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div style="padding: 1.25rem 1.5rem;">
+            <div class="d-flex align-items-center mb-2" style="gap: 0.75rem; margin-bottom: 0.75rem !important;">
+                <div style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; font-size: 1.25rem; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(76, 29, 149, 0.3); flex-shrink: 0;">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div style="flex-grow: 1;">
+                    <div style="font-size: 0.85rem; font-weight: 700; color: #4c1d95; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">
+                        ${alertTitle}
+                    </div>
+                    <div style="font-size: 0.95rem; font-weight: 500; line-height: 1.5; color: inherit;">
+                        ${message}
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="opacity: 0.6; padding: 0.5rem; margin: 0; flex-shrink: 0; transition: opacity 0.2s;"></button>
+            </div>
+        </div>
     `;
     
     document.body.appendChild(alertDiv);
-        
-        setTimeout(() => {
-        alertDiv.remove();
-        }, 5000);
+    
+    // Auto-remover después de 4 segundos con animación de salida
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.style.opacity = '0';
+            alertDiv.style.transform = 'translateX(-50%) translateY(-20px)';
+            alertDiv.style.transition = 'all 0.3s ease-out';
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 300);
+        }
+    }, 4000);
 }
 
 // FUNCIÓN 5: ELIMINAR CASO DE PRUEBA
 function eliminarCaso(projectId, testCaseId, testCaseTitle) {
-    // Crear modal de confirmación elegante
+    // Crear modal de confirmación moderno y elegante
     const modalHTML = `
         <div class="modal fade" id="modalEliminarCaso" tabindex="-1">
             <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
+                <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; border-radius: 16px 16px 0 0;">
                         <h5 class="modal-title">
                             <i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="modal-body">
-                        <div class="text-center mb-3">
-                            <i class="fas fa-file-alt fa-3x text-danger"></i>
+                    <div class="modal-body p-4">
+                        <div class="text-center mb-4">
+                            <div style="background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(239, 68, 68, 0.1) 100%); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; box-shadow: 0 4px 16px rgba(220, 38, 38, 0.2);">
+                                <i class="fas fa-trash-alt" style="font-size: 2.5rem; color: #dc2626;"></i>
+                            </div>
                         </div>
-                        <h6 class="text-center mb-3">¿Estás seguro de eliminar este caso de prueba?</h6>
-                        <div class="alert alert-warning">
-                            <strong>ID:</strong> ${testCaseId}<br>
-                            <strong>Título:</strong> ${testCaseTitle}
+                        <h5 class="text-center mb-3" style="font-weight: 600; color: #1f2937;">
+                            ¿Estás seguro de eliminar este caso de prueba?
+                        </h5>
+                        <div class="alert" style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; border-radius: 8px; padding: 1rem;">
+                            <div class="d-flex align-items-start" style="gap: 0.75rem;">
+                                <i class="fas fa-info-circle" style="color: #ef4444; margin-top: 0.25rem; flex-shrink: 0;"></i>
+                                <div style="flex-grow: 1;">
+                                    <div style="margin-bottom: 0.5rem;">
+                                        <strong style="color: #dc2626;">ID:</strong> 
+                                        <code style="background: white; padding: 0.25rem 0.5rem; border-radius: 4px; color: #dc2626; font-weight: 600;">${testCaseId}</code>
+                                    </div>
+                                    <div>
+                                        <strong style="color: #dc2626;">Título:</strong> 
+                                        <span style="color: #1f2937;">${testCaseTitle.length > 50 ? testCaseTitle.substring(0, 50) + '...' : testCaseTitle}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <p class="text-muted small text-center">
-                            <i class="fas fa-info-circle"></i> 
-                            Esta acción no se puede deshacer
-                        </p>
+                        <div class="text-center mt-3">
+                            <p class="text-muted small mb-0" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                                <i class="fas fa-exclamation-circle" style="color: #9ca3af;"></i>
+                                <span>Esta acción no se puede deshacer</span>
+                            </p>
+                        </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <div class="modal-footer" style="background: #f8fafc; border-radius: 0 0 16px 16px; padding: 1.25rem;">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 8px; padding: 0.625rem 1.5rem; font-weight: 600; border: 2px solid #e2e8f0;">
                             <i class="fas fa-times"></i> Cancelar
                         </button>
-                        <button type="button" class="btn btn-danger" onclick="confirmarEliminacionCaso('${projectId}', '${testCaseId}')">
+                        <button type="button" class="btn btn-danger" onclick="confirmarEliminacionCaso('${projectId}', '${testCaseId}')" style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); border: none; border-radius: 8px; padding: 0.625rem 1.5rem; font-weight: 600; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);">
                             <i class="fas fa-trash"></i> Eliminar Caso
                         </button>
                     </div>
-                </div>
             </div>
-        </div>
+                            </div>
+                        </div>
     `;
     
     // Limpiar modal anterior si existe
@@ -620,13 +815,13 @@ function editarCaso(projectId, testCaseId) {
                                         <i class="fas fa-tag" style="color: #6366f1;"></i> TIPO *
                                     </label>
                                     <select class="form-select" id="editType" style="border: 2px solid #e2e8f0; border-radius: 8px;">
-                                        <option value="Funcional">Funcional</option>
-                                        <option value="Integración">Integración</option>
-                                        <option value="Negativo">Negativo</option>
+                                    <option value="Funcional">Funcional</option>
+                                    <option value="Integración">Integración</option>
+                                    <option value="Negativo">Negativo</option>
                                         <option value="UI">UI</option>
-                                    </select>
-                                </div>
+                                </select>
                             </div>
+                        </div>
                             
                             <!-- ESTRUCTURA GHERKIN -->
                             <div class="mb-3">
@@ -634,45 +829,45 @@ function editarCaso(projectId, testCaseId) {
                                     <i class="fas fa-bullseye" style="color: #6366f1;"></i> 🎯 OBJETIVO
                                 </label>
                                 <textarea class="form-control" id="editObjective" rows="2" placeholder="**Objetivo:** Describir qué se quiere verificar..." style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
-                            </div>
-                            
-                            <div class="mb-3">
+                    </div>
+                    
+                    <div class="mb-3">
                                 <label for="editCriteria" class="form-label fw-bold">
                                     <i class="fas fa-clipboard-check" style="color: #6366f1;"></i> 📋 CRITERIO DE ACEPTACIÓN
                                 </label>
                                 <textarea class="form-control" id="editCriteria" rows="2" placeholder="**Criterio:** Condiciones que debe cumplir..." style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
-                            </div>
-                            
-                            <div class="mb-3">
+                    </div>
+                    
+                    <div class="mb-3">
                                 <label for="editPreconditions" class="form-label fw-bold">
                                     <i class="fas fa-cog" style="color: #6366f1;"></i> ⚙️ PRECONDICIONES
                                 </label>
                                 <textarea class="form-control" id="editPreconditions" rows="2" placeholder="**Precondiciones:**&#10;- Usuario autenticado&#10;- Sistema inicializado" style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
-                            </div>
-                            
-                            <div class="mb-3">
+                    </div>
+                    
+                    <div class="mb-3">
                                 <label for="editSteps" class="form-label fw-bold">
                                     <i class="fas fa-list-ol" style="color: #6366f1;"></i> 🔢 PASOS
                                 </label>
                                 <textarea class="form-control" id="editSteps" rows="4" placeholder="**Pasos:**&#10;1. DADO que el usuario está en la página de login&#10;2. CUANDO ingresa sus credenciales&#10;3. Y presiona el botón 'Iniciar sesión'&#10;4. ENTONCES debe ver el dashboard" style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
-                            </div>
-                            
-                            <div class="mb-3">
+                    </div>
+                    
+                    <div class="mb-3">
                                 <label for="editExpectedResult" class="form-label fw-bold">
                                     <i class="fas fa-check-circle" style="color: #10d9c4;"></i> ✅ RESULTADO ESPERADO
                                 </label>
                                 <textarea class="form-control" id="editExpectedResult" rows="2" placeholder="**Resultado Esperado:**&#10;El sistema debe mostrar..." style="border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace;"></textarea>
-                            </div>
-                        </div>
                     </div>
+                    </div>
+            </div>
                     <div class="modal-footer" style="background: #f8fafc; border-radius: 0 0 16px 16px;">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 8px;">
                             <i class="fas fa-times"></i> Cancelar
                         </button>
                         <button type="button" class="btn btn-primary" id="btnGuardarEdicion" onclick="guardarEdicion('${projectId}', '${testCaseId}')" style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); border: none; border-radius: 8px;">
-                            <i class="fas fa-save"></i> Guardar Cambios
-                        </button>
-                    </div>
+                    <i class="fas fa-save"></i> Guardar Cambios
+                </button>
+            </div>
                 </div>
             </div>
         </div>
@@ -698,9 +893,9 @@ function editarCaso(projectId, testCaseId) {
                 console.log('✅ Datos cargados:', testCase);
                 
                 // Llenar formulario con los datos
-                document.getElementById('editTitle').value = testCase.title || '';
+    document.getElementById('editTitle').value = testCase.title || '';
                 document.getElementById('editPriority').value = testCase.priority || 'Media';
-                document.getElementById('editType').value = testCase.test_type || 'Funcional';
+    document.getElementById('editType').value = testCase.test_type || 'Funcional';
                 
                 // 🔥 PARSEAR DESCRIPCIÓN EN FORMATO GHERKIN
                 const description = testCase.description || '';
@@ -767,12 +962,12 @@ function editarCaso(projectId, testCaseId) {
                 // Mostrar formulario y ocultar spinner
                 document.querySelector('.spinner-border').parentElement.style.display = 'none';
                 document.getElementById('formEditarCaso').style.display = 'block';
-            } else {
+        } else {
                 showAlert('❌ Error al cargar datos: ' + data.error, 'danger');
                 modal.hide();
-            }
-        })
-        .catch(error => {
+        }
+    })
+    .catch(error => {
             console.error('❌ Error:', error);
             showAlert('❌ Error al cargar el caso de prueba: ' + error.message, 'danger');
             modal.hide();

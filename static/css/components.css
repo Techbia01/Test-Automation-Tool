@@ -472,13 +472,7 @@
 }
 
 .test-case-card-modern::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--gradient-primary);
+    display: none !important;
 }
 
 .test-case-card-modern:hover {
