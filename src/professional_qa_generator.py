@@ -736,79 +736,76 @@ class ProfessionalQAGenerator:
     
     def _decompose_criterion_into_test_cases(self, criterion: str, start_number: int, project_name: str, user_story_text: str, parsed_story=None) -> List[TestCase]:
         """
-        Descompone un criterio de aceptación en múltiples casos de prueba específicos
-        Genera casos felices, errores, estados vacíos, usabilidad, etc.
-        Ahora usa el contexto completo de la HU para generar casos más específicos.
+        Genera casos de prueba ÚNICOS y NO redundantes a partir de un criterio de aceptación.
+        
+        REGLAS OBLIGATORIAS (QA Lead):
+        - Máximo 1 caso por criterio, salvo que aplique creación vs edición
+        - Cada caso debe validar una regla de negocio distinta
+        - No generar variantes del mismo caso con redacción diferente
+        - No separar "persistencia" como caso distinto si pertenece al mismo flujo
+        - Si dos casos validan lo mismo, consolidarlos en uno solo
         """
         test_cases = []
         counter = start_number
         criterion_lower = criterion.lower()
         
-        # Analizar el tipo de criterio para generar casos específicos
-        is_visualization = any(word in criterion_lower for word in ['muestra', 'visualiza', 'se muestra', 'aparece', 'renderiza'])
-        is_interaction = any(word in criterion_lower for word in ['clic', 'click', 'abre', 'cierra', 'navega', 'interactúa'])
-        is_validation = any(word in criterion_lower for word in ['valida', 'verifica', 'comprueba', 'confirma'])
-        is_data_operation = any(word in criterion_lower for word in ['guarda', 'almacena', 'crea', 'elimina', 'actualiza', 'modifica'])
-        is_error_handling = any(word in criterion_lower for word in ['error', 'falla', 'excepción', 'manejo'])
-        is_empty_state = any(word in criterion_lower for word in ['vacío', 'empty', 'no hay', 'sin datos'])
-        is_ui_element = any(word in criterion_lower for word in ['botón', 'button', 'tabla', 'table', 'modal', 'tooltip', 'badge', 'chip'])
-        is_copy_action = any(word in criterion_lower for word in ['copiar', 'copy', 'copiable', 'portapapeles'])
-        is_disabled = any(word in criterion_lower for word in ['deshabilitado', 'disabled', 'no aplica', 'n/a'])
+        # Detectar si el criterio menciona tanto creación como edición (reglas de negocio distintas)
+        mentions_creation = any(word in criterion_lower for word in ['crea', 'crear', 'nuevo', 'nueva'])
+        mentions_edition = any(word in criterion_lower for word in ['edita', 'editar', 'modifica', 'actualiza', 'cambia'])
         
-        # 1. CASO FELIZ (Happy Path) - SIEMPRE se genera
-        happy_case = self._generate_happy_path_case(
-            criterion=criterion,
-            test_number=counter,
-            project_name=project_name,
-            parsed_story=parsed_story
-        )
-        test_cases.append(happy_case)
-        counter += 1
-        
-        # 2. CASOS ESPECÍFICOS según el tipo de criterio
-        
-        # Si es visualización, agregar casos de estados vacíos y errores
-        if is_visualization:
-            empty_case = self._generate_empty_state_case(
-                criterion=criterion,
-                test_number=counter,
-                project_name=project_name
-            )
-            test_cases.append(empty_case)
-            counter += 1
+        # Si menciona creación Y edición, generar casos separados (son reglas de negocio distintas)
+        if mentions_creation and mentions_edition:
+            # Caso para creación
+            creation_criterion = self._extract_creation_part(criterion)
+            if creation_criterion:
+                creation_case = self._generate_happy_path_case(
+                    criterion=creation_criterion,
+                    test_number=counter,
+                    project_name=project_name,
+                    parsed_story=parsed_story
+                )
+                # Marcar explícitamente que es para creación
+                creation_case.criterion = f"Objetivo: Validar funcionalidad de CREACIÓN\nCriterio: {creation_criterion}"
+                test_cases.append(creation_case)
+                counter += 1
             
-            error_case = self._generate_error_case(
+            # Caso para edición
+            edition_criterion = self._extract_edition_part(criterion)
+            if edition_criterion:
+                edition_case = self._generate_happy_path_case(
+                    criterion=edition_criterion,
+                    test_number=counter,
+                    project_name=project_name,
+                    parsed_story=parsed_story
+                )
+                # Marcar explícitamente que es para edición
+                edition_case.criterion = f"Objetivo: Validar funcionalidad de EDICIÓN\nCriterio: {edition_criterion}"
+                test_cases.append(edition_case)
+                counter += 1
+        else:
+            # CASO ÚNICO: Happy Path que incluye persistencia si aplica
+            # El happy path ya incluye validación de persistencia en el resultado esperado
+            happy_case = self._generate_happy_path_case(
                 criterion=criterion,
                 test_number=counter,
                 project_name=project_name,
-                error_type="backend"
+                parsed_story=parsed_story
             )
-            test_cases.append(error_case)
-            counter += 1
-        
-        # Si es interacción (clics, modales), agregar casos de usabilidad
-        if is_interaction:
-            usability_case = self._generate_usability_case(
-                criterion=criterion,
-                test_number=counter,
-                project_name=project_name
-            )
-            test_cases.append(usability_case)
-            counter += 1
             
-            # Caso de error al abrir recurso no disponible
-            if 'abre' in criterion_lower or 'abrir' in criterion_lower:
-                error_resource_case = self._generate_error_case(
-                    criterion=criterion,
-                    test_number=counter,
-                    project_name=project_name,
-                    error_type="resource_not_available"
-                )
-                test_cases.append(error_resource_case)
-                counter += 1
+            # Si el criterio menciona guardar/almacenar, asegurar que el resultado esperado incluya persistencia
+            if any(word in criterion_lower for word in ['guarda', 'almacena', 'persiste', 'guardar', 'almacenar']):
+                # Asegurar que el resultado esperado mencione persistencia
+                if 'persiste' not in happy_case.expected_result.lower() and 'persistir' not in happy_case.expected_result.lower():
+                    happy_case.expected_result += " Los datos deben persistir correctamente en el sistema."
+            
+            test_cases.append(happy_case)
+            counter += 1
         
-        # Si es validación, agregar casos negativos
-        if is_validation:
+        # Solo generar casos adicionales si son reglas de negocio EXPLÍCITAS y DISTINTAS
+        # (no variantes del mismo caso)
+        
+        # Caso negativo solo si el criterio explícitamente menciona validación de datos inválidos
+        if any(word in criterion_lower for word in ['valida', 'verifica', 'comprueba']) and any(word in criterion_lower for word in ['inválido', 'incorrecto', 'error', 'no válido']):
             negative_case = self._generate_negative_validation_case(
                 criterion=criterion,
                 test_number=counter,
@@ -817,38 +814,8 @@ class ProfessionalQAGenerator:
             test_cases.append(negative_case)
             counter += 1
         
-        # Si es operación de datos, agregar casos de persistencia y errores
-        if is_data_operation:
-            persistence_case = self._generate_persistence_case(
-                criterion=criterion,
-                test_number=counter,
-                project_name=project_name
-            )
-            test_cases.append(persistence_case)
-            counter += 1
-        
-        # Si menciona elementos UI, agregar casos de usabilidad
-        if is_ui_element:
-            ui_case = self._generate_ui_element_case(
-                criterion=criterion,
-                test_number=counter,
-                project_name=project_name
-            )
-            test_cases.append(ui_case)
-            counter += 1
-        
-        # Si menciona copiar, agregar caso específico de copia
-        if is_copy_action:
-            copy_case = self._generate_copy_action_case(
-                criterion=criterion,
-                test_number=counter,
-                project_name=project_name
-            )
-            test_cases.append(copy_case)
-            counter += 1
-        
-        # Si menciona deshabilitado, agregar caso de estado deshabilitado
-        if is_disabled:
+        # Caso de estado deshabilitado solo si el criterio explícitamente menciona condiciones de deshabilitado
+        if any(word in criterion_lower for word in ['deshabilitado', 'disabled', 'no aplica', 'n/a', 'no se muestra']) and any(word in criterion_lower for word in ['si', 'cuando', 'condición']):
             disabled_case = self._generate_disabled_state_case(
                 criterion=criterion,
                 test_number=counter,
@@ -857,17 +824,37 @@ class ProfessionalQAGenerator:
             test_cases.append(disabled_case)
             counter += 1
         
-        # Si menciona manejo de errores, agregar casos específicos
-        if is_error_handling:
-            error_handling_case = self._generate_error_handling_case(
-                criterion=criterion,
-                test_number=counter,
-                project_name=project_name
-            )
-            test_cases.append(error_handling_case)
-            counter += 1
-        
         return test_cases
+    
+    def _extract_creation_part(self, criterion: str) -> str:
+        """Extrae la parte del criterio relacionada con creación"""
+        # Buscar frases que mencionen creación
+        creation_patterns = [
+            r'([^\.]+(?:crea|crear|nuevo|nueva)[^\.]+)',
+            r'(?:al|cuando)\s+crear[^\.]+',
+        ]
+        
+        for pattern in creation_patterns:
+            match = re.search(pattern, criterion, re.IGNORECASE)
+            if match:
+                return match.group(1).strip() if match.groups() else match.group(0).strip()
+        
+        return None
+    
+    def _extract_edition_part(self, criterion: str) -> str:
+        """Extrae la parte del criterio relacionada con edición"""
+        # Buscar frases que mencionen edición
+        edition_patterns = [
+            r'([^\.]+(?:edita|editar|modifica|actualiza|cambia)[^\.]+)',
+            r'(?:al|cuando)\s+(?:editar|modificar|actualizar)[^\.]+',
+        ]
+        
+        for pattern in edition_patterns:
+            match = re.search(pattern, criterion, re.IGNORECASE)
+            if match:
+                return match.group(1).strip() if match.groups() else match.group(0).strip()
+        
+        return None
     
     def _generate_global_test_cases(self, start_number: int, project_name: str, user_story_text: str, parsed_story=None) -> List[TestCase]:
         """Genera casos de prueba globales (estados vacíos generales, errores del sistema, etc.)"""
@@ -949,7 +936,7 @@ class ProfessionalQAGenerator:
     def _generate_empty_state_case(self, criterion: str, test_number: int, project_name: str) -> TestCase:
         """Genera caso de estado vacío"""
         objective = "Validar que cuando no hay datos disponibles, se muestra el estado vacío correctamente"
-        title = self._generate_short_title(criterion, "Estado vacío")
+        title = self._generate_short_title(criterion)
         
         preconditions = [
             "El sistema está operativo",
@@ -981,7 +968,7 @@ class ProfessionalQAGenerator:
         """Genera caso de manejo de errores"""
         if error_type == "backend":
             objective = "Validar que cuando el backend retorna un error, se muestra un mensaje de error apropiado"
-            title = self._generate_short_title(criterion, "Manejo de error del backend")
+            title = self._generate_short_title(criterion)
             preconditions = [
                 "El sistema está operativo",
                 "El backend está configurado para retornar un error 500"
@@ -989,7 +976,7 @@ class ProfessionalQAGenerator:
             expected_result = "Se muestra un mensaje de error claro y consistente con el diseño del sistema cuando el backend retorna error 500"
         else:  # resource_not_available
             objective = "Validar que cuando un recurso (PDF, XML) no está disponible, se muestra un mensaje de error apropiado"
-            title = self._generate_short_title(criterion, "Recurso no disponible")
+            title = self._generate_short_title(criterion)
             preconditions = [
                 "El sistema está operativo",
                 "Existe una anulación con ID válido pero el recurso (PDF/XML) no está disponible en el servidor"
@@ -1018,7 +1005,7 @@ class ProfessionalQAGenerator:
     def _generate_usability_case(self, criterion: str, test_number: int, project_name: str) -> TestCase:
         """Genera caso de usabilidad"""
         objective = "Validar aspectos de usabilidad relacionados con el criterio"
-        title = self._generate_short_title(criterion, "Usabilidad")
+        title = self._generate_short_title(criterion)
         
         preconditions = [
             "El sistema está operativo",
@@ -1048,7 +1035,7 @@ class ProfessionalQAGenerator:
     def _generate_negative_validation_case(self, criterion: str, test_number: int, project_name: str) -> TestCase:
         """Genera caso negativo de validación"""
         objective = "Validar que las validaciones funcionan correctamente con datos inválidos"
-        title = self._generate_short_title(criterion, "Validación negativa")
+        title = self._generate_short_title(criterion)
         
         preconditions = [
             "El sistema está operativo",
@@ -1078,7 +1065,7 @@ class ProfessionalQAGenerator:
     def _generate_persistence_case(self, criterion: str, test_number: int, project_name: str) -> TestCase:
         """Genera caso de persistencia de datos"""
         objective = "Validar que los datos se persisten correctamente en el sistema"
-        title = self._generate_short_title(criterion, "Persistencia de datos")
+        title = self._generate_short_title(criterion)
         
         preconditions = [
             "El sistema está operativo",
@@ -1110,7 +1097,7 @@ class ProfessionalQAGenerator:
     def _generate_ui_element_case(self, criterion: str, test_number: int, project_name: str) -> TestCase:
         """Genera caso específico para elementos UI"""
         objective = "Validar el comportamiento y visualización de elementos UI específicos"
-        title = self._generate_short_title(criterion, "Elemento UI")
+        title = self._generate_short_title(criterion)
         
         preconditions = [
             "El sistema está operativo",
@@ -1142,7 +1129,7 @@ class ProfessionalQAGenerator:
     def _generate_copy_action_case(self, criterion: str, test_number: int, project_name: str) -> TestCase:
         """Genera caso específico para acciones de copiar"""
         objective = "Validar que la funcionalidad de copiar al portapapeles funciona correctamente"
-        title = self._generate_short_title(criterion, "Copia al portapapeles")
+        title = self._generate_short_title(criterion)
         
         preconditions = [
             "El sistema está operativo",
@@ -1172,7 +1159,7 @@ class ProfessionalQAGenerator:
     def _generate_disabled_state_case(self, criterion: str, test_number: int, project_name: str) -> TestCase:
         """Genera caso para estado deshabilitado"""
         objective = "Validar que cuando un elemento no aplica, se muestra deshabilitado correctamente"
-        title = self._generate_short_title(criterion, "Estado deshabilitado")
+        title = self._generate_short_title(criterion)
         
         preconditions = [
             "El sistema está operativo",
@@ -1202,7 +1189,7 @@ class ProfessionalQAGenerator:
     def _generate_error_handling_case(self, criterion: str, test_number: int, project_name: str) -> TestCase:
         """Genera caso específico de manejo de errores"""
         objective = "Validar que el sistema maneja errores apropiadamente según el criterio"
-        title = self._generate_short_title(criterion, "Manejo de errores")
+        title = self._generate_short_title(criterion)
         
         preconditions = [
             "El sistema está operativo",
@@ -1234,7 +1221,7 @@ class ProfessionalQAGenerator:
         """Genera caso general de estado vacío"""
         return TestCase(
             id=f"TC-{test_number:03d}",
-            title="Estado vacío general cuando no hay datos",
+            title="Validar que cuando no existen datos en el sistema, se muestre el estado vacío con mensajes claros y consistentes",
             criterion="Objetivo: Validar que cuando no existen datos, se muestra el estado vacío correctamente\nCriterio: El sistema debe mostrar mensajes claros cuando no hay datos disponibles",
             test_type=TestType.FUNCIONAL,
             priority=TestPriority.MEDIA,
@@ -1256,7 +1243,7 @@ class ProfessionalQAGenerator:
         error_name = "Error interno del servidor" if error_code == 500 else "Recurso no encontrado"
         return TestCase(
             id=f"TC-{test_number:03d}",
-            title=f"Manejo de error {error_code} del backend",
+            title=f"Validar que cuando el backend retorna error {error_code}, el sistema muestre un mensaje de error apropiado y claro al usuario",
             criterion=f"Objetivo: Validar que cuando el backend retorna error {error_code}, se muestra un mensaje apropiado\nCriterio: El sistema debe manejar errores del backend ({error_code}) mostrando mensajes claros",
             test_type=TestType.NEGATIVO,
             priority=TestPriority.MEDIA,
@@ -1299,7 +1286,7 @@ class ProfessionalQAGenerator:
         elif "abre" in criterion_lower or "abrir" in criterion_lower:
             return f"Validar que los recursos se abren correctamente{context_suffix}"
         elif "guarda" in criterion_lower or "almacena" in criterion_lower or "persiste" in criterion_lower:
-            return f"Validar que los datos se guardan correctamente{context_suffix}"
+            return f"Validar que los datos se guardan y persisten correctamente en el sistema{context_suffix}"
         elif "valida" in criterion_lower or "verifica" in criterion_lower:
             return f"Validar que las validaciones funcionan correctamente{context_suffix}"
         elif "copiar" in criterion_lower or "copy" in criterion_lower:
@@ -1317,87 +1304,564 @@ class ProfessionalQAGenerator:
             return f"Validar funcionalidad del sistema según el criterio{context_suffix}"
     
     def _generate_short_title(self, criterion: str, prefix: str = "") -> str:
-        """Genera un título corto del caso de prueba"""
-        # Extraer las primeras palabras significativas del criterio
-        words = criterion.split()[:8]  # Primeras 8 palabras
-        short_desc = " ".join(words)
-        if len(criterion) > len(short_desc):
-            short_desc += "..."
-        
-        if prefix:
-            return f"{prefix}: {short_desc}"
-        return short_desc
+        """Genera un título profesional siguiendo el patrón: 'Validar que [evento] [entidad] [condición] [resultado]'"""
+        return self._generate_professional_title(criterion, prefix)
     
-    def _generate_contextual_title(self, criterion: str, parsed_story=None) -> str:
-        """Genera un título específico usando el contexto de la HU"""
+    def _generate_professional_title(self, criterion: str, prefix: str = "") -> str:
+        """
+        Genera un título profesional completo siguiendo el patrón QA Senior:
+        "Validar que [evento o acción] [entidad] [condición específica] [resultado esperado observable]"
+        
+        REGLAS ABSOLUTAS:
+        - NO truncar frases
+        - NO resumir
+        - NO cortar oraciones
+        - Oración completa, cerrada y clara
+        - Longitud objetivo: 120-180 caracteres
+        - Si supera 180, REFORMULAR, no cortar
+        - PROHIBIDO: prefijos como "Persistencia de datos:", "...", títulos genéricos
+        """
         criterion_lower = criterion.lower()
         
-        # Extraer elementos específicos del criterio
-        if "botón" in criterion_lower or "button" in criterion_lower:
-            # Buscar el nombre del botón
-            button_match = re.search(r'(?:botón|button)[:\s]*["\']?([^"\'\n\.]+)["\']?', criterion, re.IGNORECASE)
-            if button_match:
-                button_name = button_match.group(1).strip()
-                return f"Verificar botón '{button_name}' según criterio"
+        # PROHIBIR prefijos no permitidos
+        if prefix and prefix.lower() in ["persistencia de datos", "estado vacío", "manejo de error", "recurso no disponible", 
+                                         "usabilidad", "validación negativa", "elemento ui", "copia al portapapeles", 
+                                         "estado deshabilitado", "manejo de errores"]:
+            prefix = ""  # Ignorar prefijos prohibidos
         
-        if "modal" in criterion_lower or "popup" in criterion_lower or "pop-up" in criterion_lower:
-            return f"Verificar modal/popup según criterio"
+        # Extraer componentes del criterio
+        evento_accion = self._extract_evento_accion(criterion)
+        entidad = self._extract_entidad(criterion)
+        condicion = self._extract_condicion_clave(criterion)
+        resultado = self._extract_resultado_esperado(criterion)
         
-        if "tabla" in criterion_lower or "table" in criterion_lower:
-            return f"Verificar tabla según criterio"
+        # Construir título siguiendo el patrón obligatorio
+        title_parts = ["Validar que"]
         
-        if "crear" in criterion_lower or "crea" in criterion_lower:
-            # Buscar qué se crea
-            create_match = re.search(r'crear\s+([^\.\n]+)', criterion_lower)
+        # Agregar evento/acción
+        if evento_accion:
+            title_parts.append(evento_accion)
+        
+        # Agregar entidad
+        if entidad:
+            title_parts.append(entidad)
+        
+        # Agregar condición específica
+        if condicion:
+            title_parts.append(condicion)
+        
+        # Agregar resultado esperado observable
+        if resultado:
+            title_parts.append(resultado)
+        
+        # Si no se pudo extraer suficiente información, construir desde el criterio completo
+        if len(title_parts) <= 1 or not any([evento_accion, entidad, resultado]):
+            # Intentar construir desde el criterio completo de forma inteligente
+            title = self._build_complete_title_from_criterion(criterion)
+            if title and len(title) >= 50:  # Asegurar que tenga contenido suficiente
+                return title
+        
+        # Unir las partes
+        title = " ".join(title_parts)
+        
+        # Si el título es muy corto o incompleto, reformular desde el criterio
+        if len(title) < 50 or title == "Validar que":
+            title = self._build_complete_title_from_criterion(criterion)
+        
+        # Si el título supera 180 caracteres, REFORMULAR (no truncar)
+        if len(title) > 180:
+            title = self._reformulate_long_title(criterion, title)
+        
+        # Asegurar que termine con punto si es necesario y no tenga "..."
+        title = title.rstrip("...").rstrip(".")
+        if not title.endswith(".") and len(title) > 100:
+            title += "."
+        
+        return title
+    
+    def _build_complete_title_from_criterion(self, criterion: str) -> str:
+        """Construye un título completo desde el criterio sin truncar"""
+        criterion_lower = criterion.lower()
+        
+        # Patrón 1: "Cuando X, Y"
+        when_match = re.search(r'cuando\s+([^,\.]+?)(?:,\s*|\s+)([^\.]+)', criterion, re.IGNORECASE)
+        if when_match:
+            condition = when_match.group(1).strip()
+            result = when_match.group(2).strip()
+            title = f"Validar que cuando {condition}, {result}"
+            if 120 <= len(title) <= 180:
+                return title
+        
+        # Patrón 2: "Si X, Y"
+        if_match = re.search(r'si\s+([^,\.]+?)(?:,\s*|\s+)([^\.]+)', criterion, re.IGNORECASE)
+        if if_match:
+            condition = if_match.group(1).strip()
+            result = if_match.group(2).strip()
+            title = f"Validar que si {condition}, {result}"
+            if 120 <= len(title) <= 180:
+                return title
+        
+        # Patrón 3: "Al [acción] [entidad] [condición], [resultado]"
+        action_patterns = [
+            (r'al\s+guardar\s+([^,\.]+?)(?:,\s*|\s+)([^\.]+)', "al guardar"),
+            (r'al\s+crear\s+([^,\.]+?)(?:,\s*|\s+)([^\.]+)', "al crear"),
+            (r'al\s+editar\s+([^,\.]+?)(?:,\s*|\s+)([^\.]+)', "al editar"),
+            (r'al\s+cambiar\s+([^,\.]+?)(?:,\s*|\s+)([^\.]+)', "al cambiar"),
+        ]
+        
+        for pattern, action in action_patterns:
+            match = re.search(pattern, criterion, re.IGNORECASE)
+            if match:
+                entity = match.group(1).strip()
+                result = match.group(2).strip()
+                title = f"Validar que {action} {entity}, {result}"
+                if 120 <= len(title) <= 180:
+                    return title
+        
+        # Patrón 4: Construir desde el criterio completo de forma inteligente
+        # Extraer las partes más importantes del criterio
+        words = criterion.split()
+        
+        # Buscar verbos clave para construir la oración
+        key_verbs = ["guarda", "toma", "muestra", "actualiza", "reasigna", "crea", "edita", "selecciona"]
+        verb_found = None
+        verb_index = -1
+        
+        for i, word in enumerate(words):
+            if any(verb in word.lower() for verb in key_verbs):
+                verb_found = word
+                verb_index = i
+                break
+        
+        if verb_found and verb_index > 0:
+            # Construir título con contexto antes y después del verbo
+            before_verb = " ".join(words[max(0, verb_index-3):verb_index])
+            after_verb = " ".join(words[verb_index:min(len(words), verb_index+8)])
+            title = f"Validar que {before_verb} {after_verb}"
+            
+            # Asegurar longitud adecuada
+            if len(title) > 180:
+                # Acortar la parte después del verbo
+                after_verb = " ".join(words[verb_index:min(len(words), verb_index+5)])
+                title = f"Validar que {before_verb} {after_verb}"
+            
+            if 50 <= len(title) <= 200:
+                return title
+        
+        # Fallback: usar el criterio completo pero reformulado
+        # Eliminar palabras muy comunes y construir oración completa
+        important_words = [w for w in words if w.lower() not in ["el", "la", "los", "las", "de", "del", "en", "con", "por", "para", "un", "una"]]
+        
+        if len(important_words) > 5:
+            # Tomar las primeras 12-15 palabras importantes
+            selected_words = important_words[:15]
+            title = f"Validar que {' '.join(selected_words)}"
+            
+            # Si aún es muy largo, reformular
+            if len(title) > 180:
+                title = self._reformulate_long_title(criterion, title)
+            
+            return title
+        
+        # Último fallback: usar el criterio directamente pero con "Validar que"
+        title = f"Validar que {criterion}"
+        if len(title) > 180:
+            title = self._reformulate_long_title(criterion, title)
+        
+        return title
+    
+    def _reformulate_long_title(self, criterion: str, current_title: str) -> str:
+        """Reformula un título largo sin truncar, manteniendo la estructura completa"""
+        # Extraer los componentes clave del criterio
+        evento_accion = self._extract_evento_accion(criterion)
+        entidad = self._extract_entidad(criterion)
+        condicion = self._extract_condicion_clave(criterion)
+        resultado = self._extract_resultado_esperado(criterion)
+        
+        # Construir título más conciso pero completo
+        parts = ["Validar que"]
+        
+        if evento_accion:
+            # Acortar el evento/acción si es muy largo
+            if len(evento_accion) > 30:
+                # Simplificar manteniendo el sentido
+                if "al cambiar" in evento_accion:
+                    parts.append("al cambiar")
+                elif "al crear" in evento_accion:
+                    parts.append("al crear")
+                elif "al guardar" in evento_accion:
+                    parts.append("al guardar")
+                else:
+                    parts.append(evento_accion[:30])
+            else:
+                parts.append(evento_accion)
+        
+        if entidad:
+            # Acortar la entidad si es muy larga
+            if len(entidad) > 40:
+                # Extraer solo el nombre principal
+                if "campo de" in entidad:
+                    field_match = re.search(r'campo\s+de\s+([^"\']+)', entidad)
+                    if field_match:
+                        parts.append(f"el campo de {field_match.group(1).strip()[:25]}")
+                    else:
+                        parts.append("el campo")
+                else:
+                    parts.append(entidad[:40])
+            else:
+                parts.append(entidad)
+        
+        if condicion:
+            # Acortar condición si es muy larga
+            if len(condicion) > 35:
+                # Simplificar
+                if "cuando el usuario tiene" in condicion:
+                    parts.append("cuando se cumplan las condiciones especificadas")
+                else:
+                    parts.append(condicion[:35])
+            else:
+                parts.append(condicion)
+        
+        if resultado:
+            # Acortar resultado si es muy largo
+            if len(resultado) > 40:
+                # Simplificar manteniendo el sentido
+                if "se guarde" in resultado:
+                    parts.append("se guarden los datos correctamente")
+                elif "se muestre" in resultado:
+                    parts.append("se muestre la información correctamente")
+                elif "se actualice" in resultado or "se reasigne" in resultado:
+                    parts.append("se actualice el valor correctamente")
+                else:
+                    parts.append(resultado[:40])
+            else:
+                parts.append(resultado)
+        
+        title = " ".join(parts)
+        
+        # Si aún es muy largo, usar una versión más concisa del criterio
+        if len(title) > 180:
+            # Extraer solo las palabras clave más importantes
+            words = criterion.split()
+            key_words = []
+            skip_words = {"el", "la", "los", "las", "de", "del", "en", "con", "por", "para", "un", "una", "y", "o"}
+            
+            for word in words[:20]:  # Primeras 20 palabras
+                if word.lower() not in skip_words and len(word) > 2:
+                    key_words.append(word)
+            
+            title = f"Validar que {' '.join(key_words[:12])}"
+        
+        return title
+    
+    def _extract_evento_accion(self, criterion: str) -> str:
+        """Extrae el evento o acción principal del criterio"""
+        criterion_lower = criterion.lower()
+        
+        # Patrones comunes de eventos/acciones
+        if "al cambiar" in criterion_lower or "cuando cambia" in criterion_lower:
+            # Buscar qué cambia
+            change_match = re.search(r'(?:al\s+cambiar|cuando\s+cambia)\s+([^\.\n]+?)(?:\s+de|\s+a|\s+por|$)', criterion, re.IGNORECASE)
+            if change_match:
+                what = change_match.group(1).strip()
+                return f"al cambiar {what}"
+        
+        if "al crear" in criterion_lower or "cuando se crea" in criterion_lower:
+            create_match = re.search(r'(?:al\s+crear|cuando\s+se\s+crea)\s+([^\.\n]+)', criterion, re.IGNORECASE)
             if create_match:
-                what = create_match.group(1).strip()[:30]
-                return f"Verificar creación de {what}"
-            return "Verificar funcionalidad de crear"
+                what = create_match.group(1).strip()
+                return f"al crear {what}"
         
-        if "seleccionar" in criterion_lower or "selecciona" in criterion_lower:
-            # Buscar qué se selecciona
-            select_match = re.search(r'seleccionar\s+([^\.\n]+)', criterion_lower)
+        if "al editar" in criterion_lower or "cuando se edita" in criterion_lower:
+            edit_match = re.search(r'(?:al\s+editar|cuando\s+se\s+edita)\s+([^\.\n]+)', criterion, re.IGNORECASE)
+            if edit_match:
+                what = edit_match.group(1).strip()
+                return f"al editar {what}"
+        
+        if "al seleccionar" in criterion_lower or "cuando se selecciona" in criterion_lower:
+            select_match = re.search(r'(?:al\s+seleccionar|cuando\s+se\s+selecciona)\s+([^\.\n]+)', criterion, re.IGNORECASE)
             if select_match:
-                what = select_match.group(1).strip()[:30]
-                return f"Verificar selección de {what}"
-            return "Verificar funcionalidad de seleccionar"
+                what = select_match.group(1).strip()
+                return f"al seleccionar {what}"
         
-        # Si hay contexto de la HU, usar el título del proyecto
-        if parsed_story and parsed_story.title:
-            # Extraer acción principal del criterio
-            action = self._extract_main_action(criterion)
-            return f"{action} - {parsed_story.title[:40]}"
+        # Buscar verbos de acción directos
+        action_verbs = {
+            "guarda": "al guardar",
+            "almacena": "al almacenar",
+            "toma": "al tomar",
+            "marca": "al marcar",
+            "valida": "al validar",
+            "muestra": "al mostrar",
+            "visualiza": "al visualizar",
+            "abre": "al abrir",
+            "cierra": "al cerrar",
+        }
         
-        # Fallback: usar primeras palabras del criterio
-        words = criterion.split()[:6]
-        return " ".join(words) + ("..." if len(criterion) > len(" ".join(words)) else "")
+        for verb, action in action_verbs.items():
+            if verb in criterion_lower:
+                return action
+        
+        return None
     
-    def _extract_main_action(self, criterion: str) -> str:
-        """Extrae la acción principal del criterio"""
+    def _extract_entidad(self, criterion: str) -> str:
+        """Extrae la entidad afectada (frontera, campo, funcionalidad, etc.)"""
         criterion_lower = criterion.lower()
         
+        # Buscar entidades específicas
+        entities = {
+            "frontera": "una frontera",
+            "fronteras": "las fronteras",
+            "campo": "el campo",
+            "campos": "los campos",
+            "grupo": "un grupo",
+            "grupos": "los grupos",
+            "sede": "una sede",
+            "sedes": "las sedes",
+            "métrica": "una métrica",
+            "métricas": "las métricas",
+            "planilla": "la planilla",
+            "tabla": "la tabla",
+            "botón": "el botón",
+            "modal": "el modal",
+            "pop-up": "el pop-up",
+            "popup": "el popup",
+        }
+        
+        for key, entity in entities.items():
+            if key in criterion_lower:
+                # Buscar nombre específico si existe
+                if key == "campo":
+                    field_match = re.search(r'campo\s+(?:de\s+)?["\']?([^"\'\n\.]+)["\']?', criterion, re.IGNORECASE)
+                    if field_match:
+                        field_name = field_match.group(1).strip()
+                        return f"el campo de {field_name}"
+                elif key == "botón":
+                    button_match = re.search(r'botón\s+["\']?([^"\'\n\.]+)["\']?', criterion, re.IGNORECASE)
+                    if button_match:
+                        button_name = button_match.group(1).strip()
+                        return f"el botón '{button_name}'"
+                elif key == "frontera":
+                    # Buscar tipo de frontera
+                    if "embebida" in criterion_lower:
+                        return "una frontera embebida"
+                    elif "no embebida" in criterion_lower:
+                        return "una frontera no embebida"
+                
+                return entity
+        
+        # Si no encuentra entidad específica, buscar en el contexto
+        if "contract relationships" in criterion_lower or "contract rates" in criterion_lower:
+            return "los datos en contract relationships"
+        
+        return None
+    
+    def _extract_condicion_clave(self, criterion: str) -> str:
+        """Extrae la condición clave o cambio relevante"""
+        criterion_lower = criterion.lower()
+        
+        # Buscar condiciones específicas
+        if "de tipo" in criterion_lower:
+            type_match = re.search(r'de\s+tipo\s+["\']?([^"\'\n\.]+)["\']?', criterion, re.IGNORECASE)
+            if type_match:
+                tipo = type_match.group(1).strip()
+                return f"de tipo '{tipo}'"
+        
+        if "a tipo" in criterion_lower or "a Industrial" in criterion_lower or "a Residencial" in criterion_lower:
+            type_match = re.search(r'a\s+tipo\s+["\']?([^"\'\n\.]+)["\']?', criterion, re.IGNORECASE)
+            if type_match:
+                tipo = type_match.group(1).strip()
+                return f"a tipo '{tipo}'"
+        
+        if "con tipología embebida" in criterion_lower or "es embebida" in criterion_lower:
+            return "con tipología embebida"
+        
+        if "con estrato previo" in criterion_lower:
+            return "con estrato previo distinto"
+        
+        if "5 sedes" in criterion_lower or "cinco sedes" in criterion_lower:
+            return "cuando el usuario tiene 5 o más sedes"
+        
+        if "menos de 5 sedes" in criterion_lower:
+            return "cuando el usuario tiene menos de 5 sedes"
+        
+        if "no tiene grupos" in criterion_lower:
+            return "cuando el usuario no tiene grupos creados"
+        
+        if "todas las sedes" in criterion_lower:
+            return "cuando se seleccionan todas las sedes"
+        
+        return None
+    
+    def _extract_resultado_esperado(self, criterion: str) -> str:
+        """Extrae el resultado esperado o comportamiento del sistema"""
+        criterion_lower = criterion.lower()
+        
+        # Buscar resultados específicos
+        if "guarda" in criterion_lower or "almacena" in criterion_lower:
+            if "NT padre" in criterion_lower:
+                return "se guarde el NT padre correctamente"
+            elif "NT hijo" in criterion_lower:
+                return "se guarde el NT hijo correctamente"
+            return "se guarden los datos correctamente"
+        
+        if "toma" in criterion_lower:
+            if "NT padre" in criterion_lower:
+                return "se tome el NT padre desde contract relationships"
+            elif "NT directo" in criterion_lower:
+                return "se tome el NT directo"
+            return "se tome el valor correcto"
+        
+        if "reasigne" in criterion_lower or "reasignación" in criterion_lower:
+            if "estrato" in criterion_lower:
+                return "se reasigne el estrato correctamente"
+            return "se reasigne el valor correctamente"
+        
+        if "muestra" in criterion_lower or "aparece" in criterion_lower:
+            if "botón" in criterion_lower:
+                return "se muestre el botón correctamente"
+            return "se muestre la información correctamente"
+        
+        if "no se muestra" in criterion_lower or "no aparece" in criterion_lower:
+            return "no se muestre en la interfaz"
+        
+        if "se abre" in criterion_lower or "abre" in criterion_lower:
+            if "pop-up" in criterion_lower or "modal" in criterion_lower:
+                return "se abra el modal/pop-up correctamente"
+            return "se abra el recurso correctamente"
+        
+        if "sigue igual" in criterion_lower or "mantiene" in criterion_lower:
+            return "se mantenga el comportamiento actual"
+        
+        if "ya no existe" in criterion_lower or "no se guarda" in criterion_lower:
+            return "no se persista en el sistema"
+        
+        return None
+    
+    def _build_title_from_criterion(self, criterion: str) -> str:
+        """
+        DEPRECADO: Usar _build_complete_title_from_criterion en su lugar.
+        Mantenido por compatibilidad.
+        """
+        return self._build_complete_title_from_criterion(criterion)
+    
+    def _shorten_title_intelligently(self, title: str, max_length: int) -> str:
+        """
+        DEPRECADO: Este método ya no se usa.
+        Los títulos ahora se reformulan completamente en lugar de truncarse.
+        """
+        # Este método ya no debería ser llamado, pero lo mantenemos por compatibilidad
+        # Si se llama, reformular en lugar de truncar
+        return self._reformulate_long_title("", title)
+    
+    def _extract_specific_element(self, criterion: str) -> str:
+        """Extrae el elemento específico mencionado en el criterio"""
+        criterion_lower = criterion.lower()
+        
+        # Buscar campos específicos
+        field_match = re.search(r'campo\s+(?:de\s+)?["\']?([^"\'\n\.]+)["\']?', criterion_lower)
+        if field_match:
+            return f"campo '{field_match.group(1).strip()[:30]}'"
+        
+        # Buscar botones específicos
+        button_match = re.search(r'botón\s+["\']?([^"\'\n\.]+)["\']?', criterion_lower)
+        if button_match:
+            return f"botón '{button_match.group(1).strip()[:30]}'"
+        
+        # Buscar elementos UI
+        if "modal" in criterion_lower or "popup" in criterion_lower or "pop-up" in criterion_lower:
+            return "modal/pop-up"
+        if "tabla" in criterion_lower:
+            return "tabla"
+        if "grupo" in criterion_lower:
+            return "grupo"
+        if "sede" in criterion_lower or "sedes" in criterion_lower:
+            return "sedes"
+        if "métrica" in criterion_lower or "métricas" in criterion_lower:
+            return "métricas"
+        if "planilla" in criterion_lower:
+            return "planilla"
+        
+        return None
+    
+    def _extract_specific_action(self, criterion: str) -> str:
+        """Extrae la acción específica del criterio"""
+        criterion_lower = criterion.lower()
+        
+        # Mapeo de acciones a verbos en infinitivo
         action_map = {
-            "muestra": "Verificar visualización",
-            "visualiza": "Verificar visualización",
-            "aparece": "Verificar aparición",
-            "sale": "Verificar aparición",
-            "crea": "Verificar creación",
-            "crear": "Verificar creación",
-            "guarda": "Verificar guardado",
-            "almacena": "Verificar almacenamiento",
-            "valida": "Verificar validación",
-            "verifica": "Verificar verificación",
-            "selecciona": "Verificar selección",
-            "seleccionar": "Verificar selección",
-            "abre": "Verificar apertura",
-            "abrir": "Verificar apertura",
+            "muestra": "visualización de",
+            "visualiza": "visualización de",
+            "aparece": "aparición de",
+            "sale": "aparición de",
+            "crear": "creación de",
+            "crea": "creación de",
+            "guarda": "guardado de",
+            "almacena": "almacenamiento de",
+            "persiste": "persistencia de",
+            "valida": "validación de",
+            "verifica": "verificación de",
+            "seleccionar": "selección de",
+            "selecciona": "selección de",
+            "abre": "apertura de",
+            "abrir": "apertura de",
+            "descarga": "descarga de",
+            "descargar": "descarga de",
+            "sube": "subida de",
+            "subir": "subida de",
+            "copia": "copia de",
+            "copiar": "copia de",
+            "edita": "edición de",
+            "editar": "edición de",
+            "elimina": "eliminación de",
+            "eliminar": "eliminación de",
         }
         
         for key, value in action_map.items():
             if key in criterion_lower:
                 return value
         
-        return "Verificar funcionalidad"
+        return None
+    
+    def _generate_contextual_title(self, criterion: str, parsed_story=None) -> str:
+        """Genera un título profesional usando el contexto de la HU"""
+        # Usar el método profesional que ya implementa el patrón correcto
+        title = self._generate_professional_title(criterion)
+        
+        # Si hay contexto de la HU, intentar enriquecer el título
+        if parsed_story and parsed_story.title:
+            # El título ya debería ser específico, pero podemos verificar si necesita más contexto
+            if len(title) < 50:  # Si el título es muy corto, podría necesitar más contexto
+                # Intentar agregar contexto sin hacer el título genérico
+                pass  # Por ahora mantenemos el título generado
+        
+        return title
+    
+    def _extract_main_action(self, criterion: str) -> str:
+        """Extrae la acción principal del criterio (retorna solo el verbo, sin 'Validar')"""
+        criterion_lower = criterion.lower()
+        
+        action_map = {
+            "muestra": "visualización de",
+            "visualiza": "visualización de",
+            "aparece": "aparición de",
+            "sale": "aparición de",
+            "crea": "creación de",
+            "crear": "creación de",
+            "guarda": "guardado de",
+            "almacena": "almacenamiento de",
+            "valida": "validación de",
+            "verifica": "verificación de",
+            "selecciona": "selección de",
+            "seleccionar": "selección de",
+            "abre": "apertura de",
+            "abrir": "apertura de",
+        }
+        
+        for key, value in action_map.items():
+            if key in criterion_lower:
+                return value
+        
+        return None
     
     def _generate_specific_preconditions(self, criterion: str) -> List[str]:
         """Genera precondiciones específicas basadas en el criterio"""

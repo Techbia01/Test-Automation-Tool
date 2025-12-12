@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Inicio - Test Case Automation{% endblock %}
+{% block title %}Inicio - Test Automation{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -588,18 +588,111 @@ function confirmarEliminacionProyecto(projectId) {
 }
 
 function showAlert(message, type) {
+    // Remover TODAS las alertas anteriores (cualquier alerta position-fixed)
+    const existingAlerts = document.querySelectorAll('.position-fixed.alert, .alert-position-fixed, .alert[style*="position: fixed"]');
+    existingAlerts.forEach(alert => {
+        alert.style.opacity = '0';
+        alert.style.transform = 'translateX(-50%) translateY(-20px)';
+        setTimeout(() => alert.remove(), 100);
+    });
+    
     const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
-    alertDiv.style.zIndex = '9999';
+    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed alert-position-fixed`;
+    
+    // Mejorar posición: arriba al centro, no bloquea botones
+    // FORZAR estilos con !important para evitar sobrescritura
+    // Diseño mejorado con mejor espaciado y padding
+    alertDiv.setAttribute('style', `
+        position: fixed !important;
+        top: 80px !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        z-index: 10000 !important;
+        max-width: 600px !important;
+        min-width: 380px !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        border-radius: 14px !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+    `);
+    
+    // Agregar animación CSS si no existe
+    if (!document.getElementById('alert-animation-style')) {
+        const style = document.createElement('style');
+        style.id = 'alert-animation-style';
+        style.textContent = `
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(-20px) !important;
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0) !important;
+                }
+            }
+            .alert-position-fixed {
+                pointer-events: auto !important;
+                animation: slideDown 0.3s ease-out !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Determinar título según el tipo de alerta
+    let alertTitle = 'Notificación';
+    let alertIcon = 'fa-info-circle';
+    if (type === 'success') {
+        alertTitle = 'Éxito';
+        alertIcon = 'fa-check-circle';
+    } else if (type === 'danger' || type === 'error') {
+        alertTitle = 'Error';
+        alertIcon = 'fa-exclamation-triangle';
+    } else if (type === 'warning') {
+        alertTitle = 'Advertencia';
+        alertIcon = 'fa-exclamation-circle';
+    } else if (type === 'info') {
+        alertTitle = 'Información';
+        alertIcon = 'fa-info-circle';
+    }
+    
     alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div style="padding: 1.25rem 1.5rem;">
+            <div class="d-flex align-items-center mb-2" style="gap: 0.75rem; margin-bottom: 0.75rem !important;">
+                <div style="background: linear-gradient(135deg, #4c1d95 0%, #6366f1 100%); color: #10d9c4; font-size: 1.25rem; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(76, 29, 149, 0.3); flex-shrink: 0;">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div style="flex-grow: 1;">
+                    <div style="font-size: 0.85rem; font-weight: 700; color: #4c1d95; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">
+                        ${alertTitle}
+                    </div>
+                    <div style="font-size: 0.95rem; font-weight: 500; line-height: 1.5; color: inherit;">
+                        ${message}
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="opacity: 0.6; padding: 0.5rem; margin: 0; flex-shrink: 0; transition: opacity 0.2s;"></button>
+            </div>
+        </div>
     `;
+    
     document.body.appendChild(alertDiv);
     
+    // Auto-remover después de 4 segundos con animación de salida
     setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
+        if (alertDiv.parentNode) {
+            alertDiv.style.opacity = '0';
+            alertDiv.style.transform = 'translateX(-50%) translateY(-20px)';
+            alertDiv.style.transition = 'all 0.3s ease-out';
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 300);
+        }
+    }, 4000);
 }
 
 // ============================================
