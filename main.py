@@ -7,6 +7,25 @@ Punto de entrada principal del sistema
 
 import sys
 import os
+import io
+
+# Configurar encoding UTF-8 para Windows (soluciona error 'charmap' codec)
+if sys.platform == 'win32':
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        else:
+            # Para versiones anteriores de Python
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, TypeError):
+        # Si falla, intentar método alternativo
+        try:
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        except:
+            pass  # Si todo falla, continuar sin modificar
 
 # Agregar los directorios necesarios al path
 current_dir = os.path.dirname(__file__)
