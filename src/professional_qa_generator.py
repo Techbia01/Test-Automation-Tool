@@ -14,7 +14,6 @@ from enum import Enum
 
 # Configurar encoding UTF-8 para Windows (soluciona error 'charmap' codec)
 if sys.platform == 'win32':
-<<<<<<< HEAD
     try:
         if hasattr(sys.stdout, 'reconfigure'):
             sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -30,16 +29,6 @@ if sys.platform == 'win32':
             sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
         except:
             pass  # Si todo falla, continuar sin modificar
-=======
-    # Reconfigurar stdout y stderr para usar UTF-8
-    if hasattr(sys.stdout, 'reconfigure'):
-        try:
-            sys.stdout.reconfigure(encoding='utf-8')
-            sys.stderr.reconfigure(encoding='utf-8')
-        except (AttributeError, ValueError):
-            # Si falla, usar método alternativo
-            pass
->>>>>>> ddffd247ea1c50012c5260013eb3f649b4834531
 
 # Importar parser adaptativo
 try:
