@@ -5,15 +5,30 @@ Sistema Web para QA - Frontend de Generación de Casos de Prueba
 Aplicación web completa para equipos QA
 """
 
+import sys
+import os
+import io
+
+# Configurar encoding UTF-8 para Windows (soluciona error 'charmap' codec)
+if sys.platform == 'win32':
+    # Reconfigurar stdout y stderr para usar UTF-8
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8')  # type: ignore
+            sys.stderr.reconfigure(encoding='utf-8')  # type: ignore
+        else:
+            raise AttributeError("reconfigure not available")
+    except (AttributeError, ValueError):
+        # Para versiones anteriores de Python o si falla reconfigure
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 import json
-import os
 import pandas as pd
 from datetime import datetime
 from test_case_automation import UserStoryParser, TestCaseGenerator, QAValidator, TestCaseExporter
 from test_templates import TemplateManager
-import sys
-import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from exporters.linear_simple_exporter import LinearSimpleExporter
 from generators.gherkin_generator import GherkinGenerator, GherkinTestCase

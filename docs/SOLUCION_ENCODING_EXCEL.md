@@ -1,5 +1,5 @@
 
-# 🔧 Solución para Caracteres Especiales en Excel
+ 🔧 Solución para Caracteres Especiales en Excel
 
 ## 🚨 **Problema Identificado**
 

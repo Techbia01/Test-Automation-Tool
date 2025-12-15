@@ -29,11 +29,8 @@ if sys.platform == 'win32':
 
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 import json
-import os
 import pandas as pd
 from datetime import datetime
-import sys
-import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'exporters'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'generators'))
@@ -323,6 +320,10 @@ def generate_test_cases():
         # ====================================================================
         import sys
         sys.path.insert(0, 'src')
+        
+        # Importar TestType ANTES de professional_qa_generator para evitar conflictos
+        from test_case_automation import TestCase as LegacyTestCase, TestType, Priority
+        
         from professional_qa_generator import ProfessionalQAGenerator
         
         # Crear generador profesional
@@ -335,15 +336,16 @@ def generate_test_cases():
         )
         
         # Convertir a formato compatible con el sistema
-        from test_case_automation import TestCase as LegacyTestCase, TestType, Priority
         test_cases = []
         
         for prof_case in professional_cases:
-            # Mapear tipos
+            # Mapear tipos - usar TestType de test_case_automation (FUNCTIONAL, NEGATIVE, INTEGRATION)
             type_map = {
                 "Funcional": TestType.FUNCTIONAL,
                 "Negativo": TestType.NEGATIVE,
-                "Integración": TestType.INTEGRATION
+                "Integración": TestType.INTEGRATION,
+                "Regresión": TestType.FUNCTIONAL,  # Mapear regresión a funcional
+                "UI": TestType.FUNCTIONAL  # Mapear UI a funcional
             }
             
             priority_map = {
