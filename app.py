@@ -5,13 +5,28 @@ Sistema Web para QA - Frontend de Generación de Casos de Prueba
 Aplicación web completa para equipos QA
 """
 
-from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
-import json
-import os
-import pandas as pd
-from datetime import datetime
 import sys
 import os
+import io
+
+# Configurar encoding UTF-8 para Windows (soluciona error 'charmap' codec)
+if sys.platform == 'win32':
+    # Reconfigurar stdout y stderr para usar UTF-8
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8')  # type: ignore
+            sys.stderr.reconfigure(encoding='utf-8')  # type: ignore
+        else:
+            raise AttributeError("reconfigure not available")
+    except (AttributeError, ValueError):
+        # Para versiones anteriores de Python o si falla reconfigure
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
+import json
+import pandas as pd
+from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'exporters'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'generators'))

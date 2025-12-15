@@ -5,10 +5,23 @@ Generador Profesional de Casos de Prueba QA
 Inspirado en las mejores prácticas de QA profesional
 """
 
+import sys
+import io
 import re
 from typing import List, Dict, Tuple
 from dataclasses import dataclass
 from enum import Enum
+
+# Configurar encoding UTF-8 para Windows (soluciona error 'charmap' codec)
+if sys.platform == 'win32':
+    # Reconfigurar stdout y stderr para usar UTF-8
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stderr.reconfigure(encoding='utf-8')
+        except (AttributeError, ValueError):
+            # Si falla, usar método alternativo
+            pass
 
 # Importar parser adaptativo
 try:
