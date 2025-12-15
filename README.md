@@ -396,6 +396,37 @@ if state.get('name', '').lower() in ['todo', 'to do', 'backlog']:  # Agrega más
 
 ---
 
+## 👥 Trabajo en Equipo
+
+Si trabajas con otros desarrolladores, **lee primero** la guía completa:
+
+📖 **[Guía de Trabajo en Equipo](docs/GUIA_TRABAJO_EQUIPO.md)** - Evita conflictos Git
+
+### **Comandos rápidos:**
+
+```bash
+# Actualizar código antes de trabajar
+git pull origin main
+
+# Subir tus cambios
+git add .
+git commit -m "Descripción de tus cambios"
+git push origin main
+
+# O usa el script automático (Windows)
+scripts\sincronizar_cambios.bat
+
+# O en Mac/Linux
+./scripts/sincronizar_cambios.sh
+```
+
+**Importante:** 
+- ✅ Siempre haz `git pull` antes de empezar
+- ✅ Cada uno tiene su propio `qa_projects.json` (no se sube a Git)
+- ✅ Los archivos locales (`uploads/`, `outputs/`) no generan conflictos
+
+---
+
 ## 🐛 Solución de Problemas Comunes
 
 ### ❌ Error: "Python no se reconoce como comando interno o externo"
