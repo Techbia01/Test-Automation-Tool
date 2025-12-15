@@ -65,21 +65,41 @@ class QAProject:
     def load_projects(self):
         """Carga proyectos desde archivo JSON local"""
         try:
-            if os.path.exists('qa_projects.json'):
-                with open('qa_projects.json', 'r', encoding='utf-8') as f:
+            json_path = os.path.abspath('qa_projects.json')
+            if os.path.exists(json_path) and os.path.isfile(json_path):
+                with open(json_path, 'r', encoding='utf-8', errors='replace') as f:
                     self.projects = json.load(f)
                 print(f"[INFO] {len(self.projects)} proyectos cargados desde JSON local", flush=True)
-        except Exception as e:
+        except (OSError, IOError, PermissionError, json.JSONDecodeError) as e:
             print(f"[WARN] Error cargando proyectos: {e}", flush=True)
+            self.projects = {}
+        except Exception as e:
+            print(f"[WARN] Error inesperado cargando proyectos: {e}", flush=True)
             self.projects = {}
     
     def save_projects(self):
         """Guarda proyectos en archivo JSON local"""
         try:
-            with open('qa_projects.json', 'w', encoding='utf-8') as f:
+            # Obtener ruta absoluta y normalizar
+            json_path = os.path.abspath('qa_projects.json')
+            # Asegurar que el directorio existe
+            os.makedirs(os.path.dirname(json_path) if os.path.dirname(json_path) else '.', exist_ok=True)
+            
+            # Escribir archivo con manejo robusto de errores
+            with open(json_path, 'w', encoding='utf-8', errors='replace') as f:
                 json.dump(self.projects, f, indent=2, ensure_ascii=False, default=str)
-        except Exception as e:
+        except (OSError, IOError, PermissionError) as e:
             print(f"[ERROR] Error guardando proyectos: {e}", flush=True)
+            # Intentar con ruta alternativa si falla
+            try:
+                alt_path = os.path.join(os.path.expanduser('~'), 'qa_projects_backup.json')
+                with open(alt_path, 'w', encoding='utf-8', errors='replace') as f:
+                    json.dump(self.projects, f, indent=2, ensure_ascii=False, default=str)
+                print(f"[WARN] Proyectos guardados en ubicación alternativa: {alt_path}", flush=True)
+            except:
+                pass
+        except Exception as e:
+            print(f"[ERROR] Error inesperado guardando proyectos: {e}", flush=True)
     
     def create_project(self, name, description, user_story, qa_comments="", linear_hu_id=""):
         """Crea un nuevo proyecto y lo guarda localmente"""
@@ -495,11 +515,23 @@ def export_project(project_id):
         # Exportar a CSV
         exporter = TestCaseExporter()
         filename = f"proyecto_{project_id}_casos.csv"
-        filepath = os.path.join(app.config['OUTPUT_FOLDER'], filename)
+        # Sanitizar nombre de archivo
+        filename = "".join(c for c in filename if c.isalnum() or c in (' ', '-', '_', '.')).strip()
+        filepath = os.path.abspath(os.path.join(app.config['OUTPUT_FOLDER'], filename))
         
+        # Asegurar que el directorio existe
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        # Validar que el archivo se creó correctamente
         exporter.export_to_csv(test_cases, filepath)
         
-        return send_file(filepath, as_attachment=True, download_name=filename)
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'No se pudo crear el archivo de exportación'}), 500
+        
+        try:
+            return send_file(filepath, as_attachment=True, download_name=filename, mimetype='text/csv')
+        except (OSError, IOError, PermissionError) as e:
+            return jsonify({'error': f'Error al enviar archivo: {str(e)}'}), 500
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -541,7 +573,12 @@ def export_linear(project_id):
         # Exportar para Linear
         exporter = LinearSimpleExporter(app.config['OUTPUT_FOLDER'])
         filename = f"proyecto_{project_id}_linear.csv"
-        filepath = os.path.join(app.config['OUTPUT_FOLDER'], filename)
+        # Sanitizar nombre de archivo
+        filename = "".join(c for c in filename if c.isalnum() or c in (' ', '-', '_', '.')).strip()
+        filepath = os.path.abspath(os.path.join(app.config['OUTPUT_FOLDER'], filename))
+        
+        # Asegurar que el directorio existe
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         
         # Convertir casos de prueba a formato serializable para LinearSimpleExporter
         serializable_cases = []
@@ -560,9 +597,16 @@ def export_linear(project_id):
             }
             serializable_cases.append(tc_dict)
         
-        exporter.export_to_linear_csv(serializable_cases, f"proyecto_{project_id}", project.get('user_story', ''))
+        csv_file = exporter.export_to_linear_csv(serializable_cases, f"proyecto_{project_id}", project.get('user_story', ''))
         
-        return send_file(filepath, as_attachment=True, download_name=filename)
+        # Validar que el archivo existe
+        if not os.path.exists(csv_file):
+            return jsonify({'error': 'No se pudo crear el archivo de exportación'}), 500
+        
+        try:
+            return send_file(csv_file, as_attachment=True, download_name=os.path.basename(csv_file), mimetype='text/csv')
+        except (OSError, IOError, PermissionError) as e:
+            return jsonify({'error': f'Error al enviar archivo: {str(e)}'}), 500
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -623,7 +667,17 @@ def export_linear_simple(project_id):
             project.get('user_story', '')
         )
         
-        return send_file(csv_file, as_attachment=True, download_name=os.path.basename(csv_file))
+        # Validar que el archivo existe y obtener ruta absoluta
+        if not csv_file or not os.path.exists(csv_file):
+            return jsonify({'error': 'No se pudo crear el archivo de exportación'}), 500
+        
+        csv_file = os.path.abspath(csv_file)
+        filename = os.path.basename(csv_file)
+        
+        try:
+            return send_file(csv_file, as_attachment=True, download_name=filename, mimetype='text/csv')
+        except (OSError, IOError, PermissionError) as e:
+            return jsonify({'error': f'Error al enviar archivo: {str(e)}'}), 500
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -651,7 +705,17 @@ def export_linear_subissues(project_id):
             project.get('user_story', '')
         )
         
-        return send_file(csv_file, as_attachment=True, download_name=os.path.basename(csv_file))
+        # Validar que el archivo existe y obtener ruta absoluta
+        if not csv_file or not os.path.exists(csv_file):
+            return jsonify({'error': 'No se pudo crear el archivo de exportación'}), 500
+        
+        csv_file = os.path.abspath(csv_file)
+        filename = os.path.basename(csv_file)
+        
+        try:
+            return send_file(csv_file, as_attachment=True, download_name=filename, mimetype='text/csv')
+        except (OSError, IOError, PermissionError) as e:
+            return jsonify({'error': f'Error al enviar archivo: {str(e)}'}), 500
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -16,8 +16,16 @@ class LinearSimpleExporter:
     """Exportador simplificado para Linear con un solo archivo CSV"""
     
     def __init__(self, output_folder: str = "outputs"):
-        self.output_folder = output_folder
-        os.makedirs(output_folder, exist_ok=True)
+        # Normalizar ruta y asegurar que sea absoluta
+        self.output_folder = os.path.abspath(output_folder)
+        try:
+            os.makedirs(self.output_folder, exist_ok=True)
+        except (OSError, PermissionError) as e:
+            # Si falla, usar directorio temporal
+            import tempfile
+            self.output_folder = os.path.abspath(tempfile.gettempdir())
+            os.makedirs(self.output_folder, exist_ok=True)
+            print(f"[WARN] No se pudo crear directorio de salida, usando temporal: {self.output_folder}")
     
     def _sanitize_filename(self, filename: str) -> str:
         """Limpia el nombre de archivo de caracteres especiales"""
@@ -55,7 +63,19 @@ class LinearSimpleExporter:
             filename = f"linear_subissues_{clean_project_name}_{timestamp}.csv"
         else:
             filename = f"linear_test_cases_{clean_project_name}_{timestamp}.csv"
-        filepath = os.path.join(self.output_folder, filename)
+        
+        # Sanitizar nombre de archivo adicional
+        filename = self._sanitize_filename(filename)
+        
+        # Usar ruta absoluta y normalizada
+        filepath = os.path.abspath(os.path.join(self.output_folder, filename))
+        
+        # Validar longitud de ruta (Windows tiene límite de 260 caracteres)
+        if len(filepath) > 250:
+            # Truncar nombre si es necesario
+            name, ext = os.path.splitext(filename)
+            filename = name[:200] + ext
+            filepath = os.path.abspath(os.path.join(self.output_folder, filename))
         
         # Preparar datos para CSV
         csv_data = []
@@ -92,14 +112,34 @@ class LinearSimpleExporter:
             csv_data.append(row)
         
         # Escribir CSV con encoding UTF-8 y BOM para Excel (corrige tildes)
-        with open(filepath, 'w', newline='', encoding='utf-8-sig') as csvfile:
-            if csv_data:
-                fieldnames = csv_data[0].keys()
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(csv_data)
-        
-        return filepath
+        try:
+            with open(filepath, 'w', newline='', encoding='utf-8-sig', errors='replace') as csvfile:
+                if csv_data:
+                    fieldnames = csv_data[0].keys()
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(csv_data)
+            
+            # Validar que el archivo se creó correctamente
+            if not os.path.exists(filepath):
+                raise IOError(f"No se pudo crear el archivo: {filepath}")
+            
+            return filepath
+        except (OSError, IOError, PermissionError) as e:
+            # Intentar con nombre alternativo si falla
+            alt_filename = f"export_{timestamp}.csv"
+            alt_filepath = os.path.abspath(os.path.join(self.output_folder, alt_filename))
+            try:
+                with open(alt_filepath, 'w', newline='', encoding='utf-8-sig', errors='replace') as csvfile:
+                    if csv_data:
+                        fieldnames = csv_data[0].keys()
+                        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                        writer.writeheader()
+                        writer.writerows(csv_data)
+                print(f"[WARN] Archivo creado con nombre alternativo: {alt_filepath}")
+                return alt_filepath
+            except Exception as e2:
+                raise IOError(f"Error al crear archivo de exportación: {str(e)} (intento alternativo: {str(e2)})")
     
     def export_as_subissues(self, test_cases: List[Dict], project_name: str, parent_issue_id: str, user_story: str = "") -> str:
         """
