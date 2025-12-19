@@ -20,16 +20,25 @@ Sistema web completo para generar y gestionar casos de prueba funcionales con in
 
 ## ⚡ Instalación Rápida (Si ya tienes Python y Git)
 
-Si ya tienes Python 3.8+ y Git instalados, ejecuta estos 3 comandos:
+Si ya tienes Python 3.8+ y Git instalados, ejecuta estos comandos:
 
+**Windows (PowerShell o CMD):**
 ```bash
 git clone https://github.com/Techbia01/Test-Automation-Tool.git
 cd Test-Automation-Tool
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 python main.py
 ```
 
-Luego abre: http://localhost:5000
+**Mac/Linux:**
+```bash
+git clone https://github.com/Techbia01/Test-Automation-Tool.git
+cd Test-Automation-Tool
+pip3 install -r requirements.txt
+python3 main.py
+```
+
+Luego abre en tu navegador: **http://localhost:5000**
 
 **¿No tienes Python o Git?** → Sigue la guía completa abajo 👇
 
@@ -37,60 +46,101 @@ Luego abre: http://localhost:5000
 
 ## 🚀 Instalación Completa (Paso a Paso)
 
-### ⚠️ IMPORTANTE: Verifica Requisitos Antes de Continuar
+### ⚠️ IMPORTANTE: Requisitos del Sistema
 
-**Antes de clonar el repositorio, asegúrate de tener instalado:**
+**Antes de comenzar, necesitas:**
 
-1. **Python 3.8 o superior**
-2. **pip** (viene con Python)
+1. **Python 3.8 o superior** (recomendado: Python 3.10+)
+2. **pip** (viene con Python, pero a veces hay que instalarlo)
 3. **Git** (para clonar el repositorio)
-4. Navegador web moderno (Chrome, Firefox, Edge)
+4. **Navegador web moderno** (Chrome, Firefox, Edge, Safari)
+5. **Conexión a Internet** (para clonar y descargar dependencias)
+
+**Tiempo estimado de instalación:** 10-15 minutos
 
 ---
 
 ### 📋 Paso 1: Verificar que Python está Instalado
 
-Abre una terminal (PowerShell en Windows, Terminal en Mac/Linux) y ejecuta:
-
+**Windows (PowerShell o CMD):**
 ```bash
 python --version
 ```
 
-**O si no funciona, prueba:**
+**Mac/Linux:**
 ```bash
 python3 --version
 ```
 
-**✅ Debe mostrar algo como:** `Python 3.8.0` o superior
+**✅ Debe mostrar:** `Python 3.8.0` o superior (ej: `Python 3.10.5`)
 
-**❌ Si dice "no se reconoce como comando":**
-- **Windows:** Descarga Python desde https://www.python.org/downloads/
-  - ⚠️ **IMPORTANTE:** Durante la instalación, marca la casilla **"Add Python to PATH"**
-- **Mac:** `brew install python3` o descarga desde python.org
-- **Linux:** `sudo apt install python3 python3-pip` (Ubuntu/Debian)
+**❌ Si dice "no se reconoce como comando" o "command not found":**
+
+**Windows:**
+1. Descarga Python desde: https://www.python.org/downloads/
+2. ⚠️ **MUY IMPORTANTE:** Durante la instalación, marca la casilla **"Add Python to PATH"**
+3. Selecciona "Install Now" (incluye pip automáticamente)
+4. **Cierra y vuelve a abrir** la terminal después de instalar
+5. Verifica: `python --version`
+
+**Mac:**
+```bash
+# Opción 1: Con Homebrew (recomendado)
+brew install python3
+
+# Opción 2: Descarga desde python.org
+# Ve a https://www.python.org/downloads/macos/
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install python3 python3-pip python3-venv
+```
+
+**Linux (Fedora/RHEL):**
+```bash
+sudo dnf install python3 python3-pip
+```
 
 ---
 
 ### 📋 Paso 2: Verificar que pip está Instalado
 
+**Windows:**
 ```bash
-pip --version
+python -m pip --version
 ```
 
-**O si no funciona:**
+**Mac/Linux:**
 ```bash
-pip3 --version
+python3 -m pip --version
 ```
 
-**✅ Debe mostrar algo como:** `pip 21.0.0` o superior
+**✅ Debe mostrar:** `pip 21.0.0` o superior (ej: `pip 23.0.1`)
 
 **❌ Si dice "no se reconoce como comando":**
-```bash
-# Windows
-python -m ensurepip --upgrade
 
-# Mac/Linux
+**Windows:**
+```bash
+python -m ensurepip --upgrade
+```
+
+**Mac/Linux:**
+```bash
 python3 -m ensurepip --upgrade
+```
+
+**Si aún no funciona, instala pip manualmente:**
+```bash
+# Descarga get-pip.py
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+
+# Ejecuta (Windows)
+python get-pip.py
+
+# Ejecuta (Mac/Linux)
+python3 get-pip.py
 ```
 
 ---
@@ -128,62 +178,101 @@ ls     # Mac/Linux
 
 ### 📋 Paso 5: Instalar Dependencias Python
 
-**⚠️ IMPORTANTE:** Este paso instala Flask y todas las dependencias necesarias.
+**⚠️ IMPORTANTE:** Este paso instala Flask y todas las dependencias necesarias. Puede tardar 2-5 minutos.
 
+**Windows:**
 ```bash
-pip install -r requirements.txt
-```
+# Asegúrate de estar en la carpeta del proyecto
+cd Test-Automation-Tool
 
-**O si `pip` no funciona:**
-```bash
+# Instala dependencias
 python -m pip install -r requirements.txt
 ```
 
-**O en Mac/Linux:**
+**Mac/Linux:**
 ```bash
-pip3 install -r requirements.txt
+# Asegúrate de estar en la carpeta del proyecto
+cd Test-Automation-Tool
+
+# Instala dependencias
+python3 -m pip install -r requirements.txt
+```
+
+**Si tienes problemas de permisos, usa entorno virtual (Recomendado):**
+```bash
+# Windows
+python -m venv venv
+venv\Scripts\activate
+python -m pip install -r requirements.txt
+
+# Mac/Linux
+python3 -m venv venv
+source venv/bin/activate
 python3 -m pip install -r requirements.txt
 ```
 
 **✅ Verifica que Flask se instaló correctamente:**
 ```bash
-python -c "import flask; print(flask.__version__)"
+# Windows
+python -c "import flask; print('✅ Flask instalado:', flask.__version__)"
+
+# Mac/Linux
+python3 -c "import flask; print('✅ Flask instalado:', flask.__version__)"
 ```
 
-**Debe mostrar:** `2.0.0` o superior (sin errores)
+**Debe mostrar:** `✅ Flask instalado: 3.1.2` o superior (sin errores)
 
 ---
 
 ### 📋 Paso 6: Verificar Instalación Completa
 
-Ejecuta este comando para verificar que todo está listo:
+Ejecuta este comando para verificar que todas las dependencias están instaladas:
 
+**Windows:**
 ```bash
 python -c "import flask, pandas, openpyxl, requests; print('✅ Todas las dependencias están instaladas')"
 ```
 
+**Mac/Linux:**
+```bash
+python3 -c "import flask, pandas, openpyxl, requests; print('✅ Todas las dependencias están instaladas')"
+```
+
 **✅ Si muestra el mensaje de éxito:** Todo está listo para continuar
 
-**❌ Si muestra errores:** Revisa la sección "Solución de Problemas" más abajo
+**❌ Si muestra errores como "ModuleNotFoundError":**
+- Revisa que ejecutaste `pip install -r requirements.txt` correctamente
+- Verifica que estás en la carpeta correcta del proyecto
+- Revisa la sección "Solución de Problemas" más abajo
 
 ---
 
 ### 📋 Paso 7: Iniciar el Servidor
 
+**Windows:**
 ```bash
 python main.py
 ```
 
-**O si no funciona:**
+**Mac/Linux:**
 ```bash
 python3 main.py
 ```
 
 **✅ Debe mostrar algo como:**
 ```
+Iniciando Sistema de Automatizacion de Casos de Prueba para QA
+Accede a: http://localhost:5000
+Crear proyecto: http://localhost:5000/new_project
+============================================================
  * Running on http://127.0.0.1:5000
  * Press CTRL+C to quit
 ```
+
+**⚠️ IMPORTANTE:** 
+- **NO cierres la terminal** mientras uses el sistema (el servidor debe seguir corriendo)
+- Para detener el servidor, presiona `CTRL+C` en la terminal
+- Si ves errores de encoding en Windows, es normal - el sistema los maneja automáticamente
 
 ---
 
@@ -511,9 +600,9 @@ python get-pip.py
 
 ---
 
-### ❌ Error: "Port 5000 already in use"
+### ❌ Error: "Port 5000 already in use" o "Address already in use"
 
-**Problema:** Otro programa está usando el puerto 5000.
+**Problema:** Otro programa está usando el puerto 5000 (puede ser otra instancia del servidor).
 
 **Solución Windows:**
 ```bash
@@ -530,39 +619,61 @@ taskkill /PID <PID> /F
 lsof -ti:5000 | xargs kill -9
 ```
 
-**O cambia el puerto en `main.py`:**
+**O cambia el puerto en `main.py` (línea 42):**
 ```python
 app.run(debug=True, host='0.0.0.0', port=5001)  # Cambia 5000 por 5001
 ```
 
+Luego accede a: `http://localhost:5001`
+
 ---
 
-### ❌ Error: "Permission denied" al instalar paquetes
+### ❌ Error: "Permission denied" o "Access denied" al instalar paquetes
 
 **Problema:** No tienes permisos para instalar paquetes globalmente.
 
-**Solución (Recomendado - Usa entorno virtual):**
+**Solución Recomendada - Usa Entorno Virtual (Más Seguro):**
+
+**Windows:**
 ```bash
 # Crea un entorno virtual
 python -m venv venv
 
 # Actívalo
-# Windows:
 venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
 
 # Instala dependencias
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 # Ejecuta la app
 python main.py
 ```
 
-**Solución Alternativa (Instalar para el usuario):**
+**Mac/Linux:**
 ```bash
-pip install --user -r requirements.txt
+# Crea un entorno virtual
+python3 -m venv venv
+
+# Actívalo
+source venv/bin/activate
+
+# Instala dependencias
+python3 -m pip install -r requirements.txt
+
+# Ejecuta la app
+python3 main.py
 ```
+
+**Solución Alternativa - Instalar para el Usuario:**
+```bash
+# Windows
+python -m pip install --user -r requirements.txt
+
+# Mac/Linux
+python3 -m pip install --user -r requirements.txt
+```
+
+**Nota:** Con `--user`, los paquetes se instalan solo para tu usuario, no globalmente.
 
 ---
 
@@ -611,13 +722,29 @@ pip install --user -r requirements.txt
 
 **Problema:** Alguna dependencia no se instaló correctamente.
 
-**Solución:**
+**Solución Windows:**
 ```bash
 # Reinstala todas las dependencias
-pip install --upgrade -r requirements.txt
+python -m pip install --upgrade -r requirements.txt
 
 # O instala manualmente la que falta
-pip install pandas openpyxl flask requests colorama rich
+python -m pip install pandas openpyxl flask requests
+```
+
+**Solución Mac/Linux:**
+```bash
+# Reinstala todas las dependencias
+python3 -m pip install --upgrade -r requirements.txt
+
+# O instala manualmente la que falta
+python3 -m pip install pandas openpyxl flask requests
+```
+
+**Si sigue fallando, verifica que estás en la carpeta correcta:**
+```bash
+# Debe mostrar main.py, requirements.txt, etc.
+dir    # Windows
+ls     # Mac/Linux
 ```
 
 ---
@@ -625,11 +752,53 @@ pip install pandas openpyxl flask requests colorama rich
 ### ❌ El servidor no inicia o muestra errores
 
 **Solución paso a paso:**
-1. Verifica que estás en la carpeta correcta: `dir` (Windows) o `ls` (Mac/Linux)
-2. Verifica que `main.py` existe: `dir main.py` o `ls main.py`
-3. Verifica que Python funciona: `python --version`
-4. Verifica que Flask está instalado: `python -c "import flask"`
-5. Lee los mensajes de error en la terminal - suelen indicar qué falta
+
+1. **Verifica que estás en la carpeta correcta:**
+   ```bash
+   # Windows
+   dir
+   # Debe mostrar: main.py, app.py, requirements.txt, etc.
+   
+   # Mac/Linux
+   ls
+   # Debe mostrar: main.py, app.py, requirements.txt, etc.
+   ```
+
+2. **Verifica que main.py existe:**
+   ```bash
+   # Windows
+   dir main.py
+   
+   # Mac/Linux
+   ls main.py
+   ```
+
+3. **Verifica que Python funciona:**
+   ```bash
+   # Windows
+   python --version
+   
+   # Mac/Linux
+   python3 --version
+   ```
+
+4. **Verifica que Flask está instalado:**
+   ```bash
+   # Windows
+   python -c "import flask; print('OK')"
+   
+   # Mac/Linux
+   python3 -c "import flask; print('OK')"
+   ```
+
+5. **Lee los mensajes de error en la terminal** - suelen indicar qué falta o qué está mal
+
+6. **Si ves errores de encoding (charmap):** Es normal en Windows, el sistema los maneja automáticamente
+
+7. **Si ves "Errno 22 Invalid argument":** Ya está solucionado en la versión actual, pero si aparece:
+   - Verifica que tienes permisos de escritura en la carpeta
+   - Asegúrate de que la ruta no tenga caracteres especiales
+   - Revisa `docs/SOLUCION_ERROR_ERRNO22.md` para más detalles
 
 ---
 
@@ -650,6 +819,7 @@ pip install pandas openpyxl flask requests colorama rich
 
 Cuando haya nuevas versiones del proyecto:
 
+**Windows:**
 ```bash
 # 1. Asegúrate de estar en la carpeta del proyecto
 cd Test-Automation-Tool
@@ -658,7 +828,7 @@ cd Test-Automation-Tool
 git pull origin main
 
 # 3. Actualiza las dependencias (por si hay nuevas)
-pip install -r requirements.txt --upgrade
+python -m pip install -r requirements.txt --upgrade
 
 # 4. Verifica que todo sigue funcionando
 python -c "import flask; print('✅ Todo actualizado correctamente')"
@@ -667,10 +837,29 @@ python -c "import flask; print('✅ Todo actualizado correctamente')"
 python main.py
 ```
 
+**Mac/Linux:**
+```bash
+# 1. Asegúrate de estar en la carpeta del proyecto
+cd Test-Automation-Tool
+
+# 2. Descarga los cambios
+git pull origin main
+
+# 3. Actualiza las dependencias (por si hay nuevas)
+python3 -m pip install -r requirements.txt --upgrade
+
+# 4. Verifica que todo sigue funcionando
+python3 -c "import flask; print('✅ Todo actualizado correctamente')"
+
+# 5. Reinicia el servidor
+python3 main.py
+```
+
 **⚠️ IMPORTANTE:**
 - Tus proyectos locales (`qa_projects.json`) **NO se sobrescriben**
 - Si hay conflictos, Git te avisará
 - Siempre verifica que el servidor inicia correctamente después de actualizar
+- Si hay errores después de actualizar, revisa la sección "Solución de Problemas"
 
 ---
 
@@ -709,11 +898,36 @@ Tu sistema está configurado para que **cada desarrollador lo clone y use indepe
 
 No necesitas configurar bases de datos ni servidores compartidos. Simplemente:
 
+**Windows:**
 ```bash
-git clone <repo>
-cd test_automation_tool
-pip install -r requirements.txt
+git clone https://github.com/Techbia01/Test-Automation-Tool.git
+cd Test-Automation-Tool
+python -m pip install -r requirements.txt
 python main.py
 ```
 
+**Mac/Linux:**
+```bash
+git clone https://github.com/Techbia01/Test-Automation-Tool.git
+cd Test-Automation-Tool
+python3 -m pip install -r requirements.txt
+python3 main.py
+```
+
+Luego abre: **http://localhost:5000**
+
 **¡A generar casos de prueba profesionales! 🚀**
+
+---
+
+## 📚 Documentación Adicional
+
+- **[Contexto Técnico](docs/CONTEXTO_TECNICO_PRESENTACION.md)** - Detalles técnicos del sistema
+- **[Guía de Trabajo en Equipo](docs/GUIA_TRABAJO_EQUIPO.md)** - Cómo trabajar con otros desarrolladores
+- **[Solución Error Errno 22](docs/SOLUCION_ERROR_ERRNO22.md)** - Solución a problemas de rutas en Windows
+- **[Solución Error Charmap](docs/SOLUCION_ERROR_CHARMAP.md)** - Solución a problemas de encoding
+
+---
+
+**Última actualización:** 2024
+**Versión:** 1.0
