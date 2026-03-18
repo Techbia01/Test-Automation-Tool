@@ -8,7 +8,7 @@ Las variables de entorno tienen prioridad sobre el JSON.
 
 import os
 import json
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 # Cargar .env desde la raíz del proyecto (no subir .env a Git; usar .env.example como plantilla)
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -73,11 +73,77 @@ LINEAR_TEAM_IDS: List[str] = _parse_team_ids()
 """Lista de IDs de equipo para filtrar. Vacío = intentar todos los equipos."""
 
 
-# --- GitHub ---
+def _parse_github_team_repos() -> Dict[str, str]:
+    """
+    Prefijo de equipo Linear (clave del equipo, ej. FIN en FIN-123) -> owner/repo.
+    No se puede inferir el repo solo con el nombre de rama; varios equipos = varios repos.
+    """
+    raw = _json.get("github_team_repos")
+    if isinstance(raw, dict):
+        return {
+            str(k).strip().upper(): str(v).strip()
+            for k, v in raw.items()
+            if k and v
+        }
+    env = _get_env("GITHUB_TEAM_REPOS")
+    if env:
+        try:
+            d = json.loads(env)
+            if isinstance(d, dict):
+                return {
+                    str(k).strip().upper(): str(v).strip()
+                    for k, v in d.items()
+                    if k and v
+                }
+        except json.JSONDecodeError:
+            pass
+    return {}
+
+
+GITHUB_TEAM_REPOS: Dict[str, str] = _parse_github_team_repos()
+"""Mapa clave de equipo Linear -> repo GitHub (ej. FIN -> mi-org/app-finanzas)."""
+
 GITHUB_DEFAULT_REPO: Optional[str] = (
     _get_env("GITHUB_DEFAULT_REPO") or _json.get("github_default_repo")
 )
-"""Repositorio por defecto (owner/repo o URL). Usado si el issue no tiene URL de GitHub."""
+"""Repo por defecto si no hay URL en el issue ni entrada en github_team_repos."""
 
 GITHUB_TOKEN: Optional[str] = _get_env("GITHUB_TOKEN") or _json.get("github_token")
 """Token de GitHub para repos privados y mayor rate limit. Opcional."""
+
+def _optional_label(env_key: str, json_key: str) -> Optional[str]:
+    raw = _get_env(env_key) or _json.get(json_key)
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    return s or None
+
+
+LINEAR_LABEL_MANUAL_TEST: Optional[str] = _optional_label(
+    "LINEAR_LABEL_MANUAL_TEST", "linear_label_manual_test"
+)
+LINEAR_LABEL_AUTOMATABLE: Optional[str] = _optional_label(
+    "LINEAR_LABEL_AUTOMATABLE", "linear_label_automatizable"
+)
+"""
+Nombres de etiqueta para ejecución manual / automatizable.
+Si no se definen, Linear API usa por defecto «Manual» y «Automatizable»
+(creación automática en el equipo si no existen).
+"""
+
+LINEAR_WEBHOOK_SECRET: Optional[str] = _get_env("LINEAR_WEBHOOK_SECRET") or _json.get(
+    "linear_webhook_secret"
+)
+"""Secreto de firma del webhook (Linear → Settings → API → webhook)."""
+
+_ws_raw = _get_env("WEBHOOK_SKIP_IF_CHILDREN")
+if _ws_raw is not None and str(_ws_raw).strip() != "":
+    WEBHOOK_SKIP_IF_CHILDREN = str(_ws_raw).strip().lower() in ("1", "true", "yes")
+elif "webhook_skip_if_children" in _json:
+    _wv = _json.get("webhook_skip_if_children")
+    WEBHOOK_SKIP_IF_CHILDREN = (
+        bool(_wv) if isinstance(_wv, bool) else str(_wv).lower() in ("1", "true", "yes")
+    )
+else:
+    WEBHOOK_SKIP_IF_CHILDREN = True
+"""Si el padre ya tiene sub-issues, no reprocesar (evita duplicados al re-disparar)."""

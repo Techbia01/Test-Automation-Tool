@@ -12,6 +12,21 @@ Desde la raíz del proyecto:
 python3 scripts/run_linear_automation.py
 ```
 
+**Salida por defecto (ejecución real):** solo **repo GitHub**, **código del issue** (ej. `ACQ-368`), **título** y **lista de casos** con **`[MANUAL]`** o **`[AUTO]`** (los casos dudosos cuentan como manual), más resultado esperado truncado y nota breve. Para volcar descripción completa, README GitHub y detalle de cada paso: `python3 scripts/run_linear_automation.py --verbose` o `AUTOMATION_VERBOSE=1`.
+
+### Ejecución sugerida (manual vs automatizable)
+
+Cada caso generado incluye una **clasificación heurística** (no sustituye criterio humano):
+
+| Valor | Significado |
+|-------|-------------|
+| **Manual** | Incluye casos dudosos: ejecutar a mano (usabilidad, señales mixtas, etc.). |
+| **Automatizable** | Flujo verificable por API/UI estable; candidato a E2E o contratos. |
+
+En **Linear**, la descripción del sub-issue empieza con **Ejecución sugerida** y **Nota**. Opcionalmente, si creas en el equipo etiquetas con el **mismo nombre** que configures, se añaden a los sub-issues:
+
+- Por defecto se buscan **`TC_Manual`** y **`TC_Automatizable`** (coinciden con nombres habituales en Linear). Se listan **todas** las etiquetas del equipo con paginación, para no perder etiquetas que quedan fuera de la primera página de la API. Si no existen, el script intenta crearlas. Puedes cambiar los nombres con `LINEAR_LABEL_MANUAL_TEST` / `LINEAR_LABEL_AUTOMATABLE`. También se prueban alias `Manual` / `Automatizable` si el nombre configurado no existe.
+
 Sin configurar nada deberías ver: `[ERROR] LINEAR_API_KEY no configurado`. Eso confirma que el script y la carga de config funcionan.
 
 ### 2. Probar que se carga el `.env`
@@ -45,24 +60,75 @@ python3 scripts/run_linear_automation.py
 
 5. Revisa en Linear: el issue debe tener **sub-issues** creados (los casos de prueba). Si configuraste `LINEAR_STATE_AFTER_SUCCESS`, el issue habrá pasado a ese estado.
 
-### 4. Probar solo el contexto de GitHub (sin Linear)
+### 4. Probar solo la extracción desde Linear (sin generar casos)
 
-Desde la raíz del proyecto, en Python:
+Script dedicado: no genera casos de prueba ni sube nada a Linear.
+
+```bash
+# Ver rama (branchName), adjuntos y descripción de un issue
+python3 scripts/inspect_linear_issue.py FIN-123
+
+# Listar issues del estado configurado en .env (LINEAR_TARGET_STATE)
+python3 scripts/inspect_linear_issue.py --list
+
+# Listar otro estado
+python3 scripts/inspect_linear_issue.py --list --state "TC Generator"
+```
+
+Necesitas `LINEAR_API_KEY` en `.env`.
+
+### 5. Ver qué información trae GitHub (README + estructura)
+
+Script que imprime **el mismo texto** que se inyecta en el generador de casos:
+
+```bash
+# Repo concreto (público; sin token hace falta si es privado)
+python3 scripts/inspect_github_context.py owner/repo
+
+# Rama concreta (equivalente a branchName de Linear + GITHUB_DEFAULT_REPO)
+python3 scripts/inspect_github_context.py owner/repo --ref mi-rama
+
+# Usar GITHUB_DEFAULT_REPO y GITHUB_TOKEN del .env
+python3 scripts/inspect_github_context.py --from-env
+
+# Simular issue con rama en Linear + repo por defecto
+python3 scripts/inspect_github_context.py owner/repo --linear-branch mi-rama
+
+# Vista corta
+python3 scripts/inspect_github_context.py owner/repo --max-chars 1500
+```
+
+Si sale vacío: repo privado sin `GITHUB_TOKEN`, rama inexistente o repo mal escrito.
+
+**Probar repo por equipo (sin escribir owner/repo a mano):**
+
+```bash
+python3 scripts/inspect_github_context.py --team-key FIN --linear-branch feature/acq-3
+```
+
+(Requiere `github_team_repos` con la clave `FIN` en `automation_config.json`.)
+
+**Solo el README (texto plano en consola):**
+
+```bash
+python3 scripts/show_github_readme.py org/repo
+python3 scripts/show_github_readme.py org/repo --ref nombre-rama
+python3 scripts/show_github_readme.py --from-env
+python3 scripts/show_github_readme.py --team-key ACQ
+
+# Si falla: ver motivo (token, 404, SSO de la organización)
+python3 scripts/show_github_readme.py biaenergy/bianetwork-web-app --ref feature/factura-gamification -v
+```
+
+Si ves **403** y mensaje de **SSO**: en GitHub → Settings → Developer settings → el token → **Configure SSO** → **Authorize** junto a la organización `biaenergy`.
+
+**Alternativa rápida** (una línea):
 
 ```bash
 python3 -c "
-import sys
-sys.path.insert(0, 'src')
-from github_context import get_project_context_for_issue, fetch_repo_context
-
-# Repo por defecto
-ctx = fetch_repo_context('Techbia01/Test-Automation-Tool', include_structure=True)
-print('Contexto (primeros 500 chars):', (ctx or '')[:500])
-
-# Extracción de URL desde texto
-from github_context import extract_github_repo_from_text
-text = 'Ver repo: https://github.com/owner/repo y mas texto'
-print('Repo extraído:', extract_github_repo_from_text(text))
+import sys; sys.path.insert(0,'src')
+from github_context import fetch_repo_context
+print(fetch_repo_context('octocat/Hello-World')[:800])
 "
 ```
 
@@ -88,8 +154,10 @@ Todas las opciones pueden definirse por **variable de entorno**, por un archivo 
 | `LINEAR_TARGET_STATE` / `linear_target_state` | Estado en el que deben estar las historias para generar casos (por defecto: `TC Generator`) |
 | `LINEAR_STATE_AFTER_SUCCESS` / `linear_state_after_success` | Estado al que mover el issue tras generar (ej: `Ready for QA`). Opcional; si no se define, el issue no cambia de estado |
 | `LINEAR_TEAM_IDS` / `linear_team_ids` | IDs de equipos separados por coma (o lista en JSON). Vacío = todos los equipos |
-| `GITHUB_DEFAULT_REPO` / `github_default_repo` | Repo por defecto (`owner/repo` o URL). Se usa si el issue no contiene URL de GitHub |
-| `GITHUB_TOKEN` / `github_token` | Token de GitHub para repos privados y mayor rate limit (opcional) |
+| `GITHUB_DEFAULT_REPO` / `github_default_repo` | Repo por defecto si no hay URL en el issue ni mapeo por equipo |
+| `github_team_repos` (JSON) | Varios equipos: `{"FIN":"org/repo-a","ACQ":"org/repo-b"}`. La clave = prefijo del issue (`FIN-123` → `FIN`). **No se puede deducir el repo solo con el nombre de rama** |
+| `GITHUB_TEAM_REPOS` | Mismo mapa en JSON vía variable de entorno (opcional) |
+| `GITHUB_TOKEN` / `github_token` | Token para repos privados (opcional) |
 
 ### Ejemplo `automation_config.json`
 
@@ -99,7 +167,11 @@ Todas las opciones pueden definirse por **variable de entorno**, por un archivo 
   "linear_target_state": "TC Generator",
   "linear_state_after_success": "Ready for QA",
   "linear_team_ids": [],
-  "github_default_repo": "mi-org/mi-repo",
+  "github_default_repo": "mi-org/repo-por-defecto",
+  "github_team_repos": {
+    "FIN": "mi-org/app-finanzas",
+    "ACQ": "mi-org/app-adquisiciones"
+  },
   "github_token": ""
 }
 ```
@@ -130,9 +202,18 @@ El script:
 
 ## Repositorio GitHub por issue
 
-- Si en la **descripción del issue** de Linear aparece una URL de GitHub (ej: `https://github.com/owner/repo` o `github.com/owner/repo`), se usa ese repo para obtener contexto.
-- Si no hay URL, se usa **GITHUB_DEFAULT_REPO**.
-- El contexto incluye el README y la lista de archivos/carpetas en la raíz del repo para mejorar la generación de casos.
+Orden de resolución del repo:
+
+1. **Adjuntos** (PR / URL GitHub).
+2. **Descripción** con URL de GitHub.
+3. **`github_team_repos`**: repo según la clave del equipo (`FIN-123` → clave `FIN`).
+4. **`GITHUB_DEFAULT_REPO`**.
+
+**Rama (`branchName`):** solo indica en qué rama está el trabajo; **no identifica el repositorio** (muchas apps pueden tener una rama `feature/x`). Para varios equipos en un mismo Linear, define **`github_team_repos`** en `automation_config.json`. El README se pide con `?ref=<rama>` cuando ya se conoce el repo.
+
+## Webhook (disparo al cambiar de estado)
+
+Si quieres ejecutar **en cuanto** un issue pasa al estado configurado (sin esperar al cron), usa un servidor webhook. Guía: [docs/LINEAR_WEBHOOK.md](LINEAR_WEBHOOK.md).
 
 ## Ejemplo de cron (Linux/macOS)
 
@@ -174,4 +255,4 @@ Y en crontab:
 - **"LINEAR_API_KEY no configurado"**: Define la variable de entorno o `linear_api_key` en `automation_config.json`.
 - **"No se pudo conectar con Linear"**: Comprueba que la API Key sea válida y tenga permisos de lectura/escritura.
 - **"No hay issues en estado '...'"**: Verifica que el nombre del estado coincida exactamente con el de la UI de Linear y que existan issues en ese estado.
-- **Contexto GitHub vacío**: Si usas repo por defecto, comprueba `GITHUB_DEFAULT_REPO`. Para repos privados, define `GITHUB_TOKEN`.
+- **Contexto GitHub vacío**: Comprueba `GITHUB_DEFAULT_REPO` o `github_team_repos` (clave = prefijo del issue). Repos privados: `GITHUB_TOKEN`.

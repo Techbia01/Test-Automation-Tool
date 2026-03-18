@@ -27,12 +27,20 @@ class LinearIssueSummary:
     state: str
     team_id: str
 
+
+@dataclass
+class LinearIssueGitContext:
+    """Rama y adjuntos Git/PR asociados al issue en Linear."""
+    branch_name: str
+    attachment_urls: List[str]
+
 class LinearAPIClient:
     """Cliente para interactuar con la API de Linear"""
     
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.base_url = "https://api.linear.app/graphql"
+        self._labels_by_team: Dict[str, List[Dict]] = {}
         self.headers = {
             "Authorization": api_key,  # Linear NO usa "Bearer", solo el API key directamente
             "Content-Type": "application/json"
@@ -165,17 +173,28 @@ class LinearAPIClient:
         
         return None
     
-    def create_sub_issue(self, parent_id: str, title: str, description: str, 
-                        team_id: str, priority: int = 2, labels: Optional[List[str]] = None,
-                        state_id: Optional[str] = None) -> Optional[str]:
-        """Crea un sub-issue vinculado a un issue padre"""
-        
-        # Obtener IDs de labels
-        label_ids = []
-        if labels:
-            label_ids = self._get_label_ids(team_id, labels)
+    def create_sub_issue(
+        self,
+        parent_id: str,
+        title: str,
+        description: str,
+        team_id: str,
+        priority: int = 2,
+        labels: Optional[List[str]] = None,
+        state_id: Optional[str] = None,
+        label_ids: Optional[List[str]] = None,
+    ) -> Optional[str]:
+        """Crea un sub-issue vinculado a un issue padre.
+
+        Si ``label_ids`` se pasa (lista de UUID de etiquetas), se usa tal cual
+        (tras deduplicar). Si no, se resuelven los nombres en ``labels``.
+        """
+        if label_ids is not None:
+            label_ids_resolved = list(dict.fromkeys(label_ids))
+        elif labels:
+            label_ids_resolved = self._get_label_ids(team_id, labels)
         else:
-            label_ids = []
+            label_ids_resolved = []
         
         # Si no se proporciona state_id, obtener el estado "Todo" del equipo
         if not state_id:
@@ -209,7 +228,7 @@ class LinearAPIClient:
             "teamId": team_id,
             "parentId": parent_id,
             "priority": priority,
-            "labelIds": label_ids
+            "labelIds": label_ids_resolved
         }
         
         # Agregar stateId si se proporcionó
@@ -274,8 +293,14 @@ class LinearAPIClient:
             print(f"[ERROR] Error detectando equipo: {e}")
             return None
     
-    def upload_test_cases_as_subissues(self, parent_issue_identifier: str, test_cases: List[Dict], 
-                                     team_id: Optional[str] = None) -> List[str]:
+    def upload_test_cases_as_subissues(
+        self,
+        parent_issue_identifier: str,
+        test_cases: List[Dict],
+        team_id: Optional[str] = None,
+        label_manual: Optional[str] = None,
+        label_automatizable: Optional[str] = None,
+    ) -> List[str]:
         """Sube múltiples casos de prueba como sub-issues"""
         created_issues = []
         
@@ -303,30 +328,108 @@ class LinearAPIClient:
         else:
             print(f"[OK] UUID obtenido: {parent_uuid}")
         
+        manual_name = (label_manual or "TC_Manual").strip()
+        auto_name = (label_automatizable or "TC_Automatizable").strip()
+        self._labels_by_team[team_id] = self._fetch_team_labels_paginated(team_id)
+        nodes = self._labels_by_team[team_id]
+
         print(f"[INFO] Procesando {len(test_cases)} casos de prueba...")
-        
+        print(
+            "[INFO] Etiquetas ejecución: Manual=%r | Automatizable=%r (%d etiquetas cargadas)"
+            % (manual_name, auto_name, len(nodes))
+        )
+        if not nodes:
+            print(
+                "[WARN] No se pudieron cargar etiquetas del equipo; "
+                "revisa team_id y permisos del API key."
+            )
+
+        def _match_label(names: List[str]) -> Optional[str]:
+            cur = self._labels_by_team.get(team_id) or []
+            for want in names:
+                if not want:
+                    continue
+                w = want.strip().lower()
+                for node in cur:
+                    if (node.get("name") or "").strip().lower() == w:
+                        return node.get("id")
+            return None
+
+        def _ensure_label(names: List[str]) -> Optional[str]:
+            lid = _match_label(names)
+            if lid:
+                return lid
+            primary = next((n for n in names if n and str(n).strip()), None)
+            if not primary:
+                return None
+            created = self._create_team_label(team_id, primary.strip())
+            if created:
+                self._labels_by_team.setdefault(team_id, []).append(
+                    {"id": created, "name": primary.strip()}
+                )
+                return created
+            self._labels_by_team[team_id] = self._fetch_team_labels_paginated(
+                team_id
+            )
+            return _match_label(names)
+
         for i, test_case in enumerate(test_cases, 1):
-            # Usar solo el título sin duplicar el ID
-            # Linear ya agrega su propio identificador (ej: FIN-1234)
-            title = test_case.get('title', 'Sin titulo')
-            
-            print(f"[INFO] Caso {i}/{len(test_cases)}: {test_case.get('test_case_id', f'TC-{i:03d}')} - {title[:50]}...")
-            
-            # Construir descripción formateada
+            title = test_case.get("title", "Sin titulo")
+
+            print(
+                "[INFO] Caso %d/%d: %s - %s..."
+                % (
+                    i,
+                    len(test_cases),
+                    test_case.get("test_case_id", "TC-%03d" % i),
+                    title[:50],
+                )
+            )
+
             description = self._format_test_case_description(test_case)
-            
-            # Solo usar etiqueta Test_Case (la prioridad va en el campo priority)
-            labels = ["Test_Case"]
-            
-            # Crear sub-issue usando el UUID interno
-            print(f"       Creando sub-issue con team_id: {team_id}")
+
+            label_ids: List[str] = []
+            tc_id = _match_label(["Test_Case", "test_case"])
+            if tc_id and tc_id not in label_ids:
+                label_ids.append(tc_id)
+
+            raw_suit = test_case.get("execution_suitability")
+            if raw_suit is None and i == 1:
+                print(
+                    "[WARN] Los casos no incluyen 'execution_suitability'; "
+                    "solo se aplicará Test_Case. Actualiza run_linear / generador."
+                )
+            if isinstance(raw_suit, str):
+                suit = raw_suit.strip()
+            elif raw_suit is not None and hasattr(raw_suit, "value"):
+                suit = str(raw_suit.value).strip()
+            else:
+                suit = (str(raw_suit) if raw_suit is not None else "").strip()
+            if suit == "Automatizable":
+                aid = _ensure_label(
+                    [auto_name, "TC_Automatizable", "Automatizable"]
+                )
+                if aid and aid not in label_ids:
+                    label_ids.append(aid)
+            else:
+                # Manual, Revisar (histórico) o vacío → TC_Manual
+                mid = _ensure_label(
+                    [manual_name, "TC_Manual", "Manual"]
+                )
+                if mid and mid not in label_ids:
+                    label_ids.append(mid)
+
+            print("       Creando sub-issue con team_id: %s" % team_id)
             issue_id = self.create_sub_issue(
-                parent_id=parent_uuid,  # UUID interno, no el identificador público
+                parent_id=parent_uuid,
                 title=title,
                 description=description,
                 team_id=team_id,
-                priority=self._get_linear_priority(test_case.get('priority', 'Media')),
-                labels=labels
+                priority=self._get_linear_priority(
+                    test_case.get("priority", "Media")
+                ),
+                labels=None,
+                label_ids=label_ids,
             )
             
             if issue_id:
@@ -354,12 +457,18 @@ class LinearAPIClient:
         response.raise_for_status()
         return response.json()
     
-    def _get_label_ids(self, team_id: str, label_names: List[str]) -> List[str]:
-        """Obtiene los IDs de las labels por nombre"""
+    def _fetch_team_labels_paginated(self, team_id: str) -> List[Dict]:
+        """Todas las etiquetas del equipo (paginado; Linear no devuelve todas en una página)."""
+        out: List[Dict] = []
+        cursor: Optional[str] = None
         query = """
-        query($teamId: String!) {
+        query($teamId: String!, $after: String) {
             team(id: $teamId) {
-                labels {
+                labels(first: 100, after: $after) {
+                    pageInfo {
+                        hasNextPage
+                        endCursor
+                    }
                     nodes {
                         id
                         name
@@ -368,16 +477,110 @@ class LinearAPIClient:
             }
         }
         """
-        
         try:
-            response = self._make_request(query, {"teamId": team_id})
-            labels = response.get('data', {}).get('team', {}).get('labels', {}).get('nodes', [])
-            
-            label_map = {label['name']: label['id'] for label in labels}
-            return [label_map[name] for name in label_names if name in label_map]
+            while True:
+                response = self._make_request(
+                    query, {"teamId": team_id, "after": cursor}
+                )
+                team = (response.get("data") or {}).get("team") or {}
+                conn = team.get("labels") or {}
+                batch = conn.get("nodes") or []
+                out.extend(batch)
+                pi = conn.get("pageInfo") or {}
+                if not pi.get("hasNextPage"):
+                    break
+                cursor = pi.get("endCursor")
+                if not cursor:
+                    break
+            return out
         except Exception as e:
-            print(f"Error obteniendo labels: {e}")
-            return []
+            print("[WARN] Error listando etiquetas del equipo: %s" % e)
+            return out
+
+    def _team_label_nodes(self, team_id: str) -> List[Dict]:
+        """Compatibilidad: etiquetas del equipo (con caché)."""
+        if team_id not in self._labels_by_team:
+            self._labels_by_team[team_id] = self._fetch_team_labels_paginated(
+                team_id
+            )
+        return self._labels_by_team[team_id]
+
+    def _get_team_labels(self, team_id: str, refresh: bool = False) -> List[Dict]:
+        if refresh or team_id not in self._labels_by_team:
+            self._labels_by_team[team_id] = self._fetch_team_labels_paginated(
+                team_id
+            )
+        return self._labels_by_team[team_id]
+
+    def _find_label_id(self, team_id: str, name: str) -> Optional[str]:
+        """Busca etiqueta por nombre exacto o sin distinguir mayúsculas."""
+        name_lower = name.strip().lower()
+        for node in self._team_label_nodes(team_id):
+            if node.get("name", "").strip().lower() == name_lower:
+                return node.get("id")
+        return None
+
+    def _create_team_label(self, team_id: str, name: str, color: str = "#5E6AD2") -> Optional[str]:
+        """Crea una etiqueta en el equipo. Devuelve el id o None."""
+        mutation = """
+        mutation($input: IssueLabelCreateInput!) {
+            issueLabelCreate(input: $input) {
+                success
+                issueLabel {
+                    id
+                    name
+                }
+            }
+        }
+        """
+        try:
+            response = self._make_request(
+                mutation,
+                {"input": {"teamId": team_id, "name": name.strip(), "color": color}},
+            )
+            err = response.get("errors")
+            if err:
+                for e in err:
+                    print(
+                        "[WARN] issueLabelCreate: %s"
+                        % e.get("message", str(e))
+                    )
+                return None
+            payload = response.get("data", {}).get("issueLabelCreate", {})
+            if payload.get("success") and payload.get("issueLabel"):
+                lid = payload["issueLabel"].get("id")
+                print(
+                    "[INFO] Etiqueta creada en el equipo: %s (%s)"
+                    % (name, lid[:8] if lid else "")
+                )
+                return lid
+        except Exception as e:
+            print("[WARN] No se pudo crear la etiqueta %r: %s" % (name, e))
+        return None
+
+    def get_or_create_label_id(self, team_id: str, name: str) -> Optional[str]:
+        """
+        Obtiene el id de una etiqueta del equipo o la crea si no existe.
+        """
+        if not name or not str(name).strip():
+            return None
+        name = str(name).strip()
+        found = self._find_label_id(team_id, name)
+        if found:
+            return found
+        created = self._create_team_label(team_id, name)
+        if created:
+            return created
+        return self._find_label_id(team_id, name)
+
+    def _get_label_ids(self, team_id: str, label_names: List[str]) -> List[str]:
+        """Obtiene los IDs de las labels por nombre (exacto o misma capitalización)."""
+        result: List[str] = []
+        for name in label_names:
+            lid = self._find_label_id(team_id, name)
+            if lid:
+                result.append(lid)
+        return result
     
     def _get_todo_state_id(self, team_id: str) -> Optional[str]:
         """Obtiene el ID del estado 'Todo' o 'To Do' del equipo"""
@@ -510,6 +713,56 @@ class LinearAPIClient:
                 print(f"[ERROR] list_issues_by_state para equipo {tid}: {e}")
         return result
 
+    def get_issue_summary_by_uuid(self, issue_uuid: str) -> Optional[LinearIssueSummary]:
+        """Carga identificador, descripción y equipo por UUID (útil para webhooks)."""
+        query = """
+        query($id: String!) {
+            issue(id: $id) {
+                id
+                identifier
+                title
+                description
+                state { id name }
+                team { id }
+            }
+        }
+        """
+        try:
+            response = self._make_request(query, {"id": issue_uuid})
+            n = (response.get("data") or {}).get("issue")
+            if not n:
+                return None
+            return LinearIssueSummary(
+                id=n["id"],
+                identifier=n.get("identifier") or "",
+                title=n.get("title") or "",
+                description=(n.get("description") or "") or "",
+                state=(n.get("state") or {}).get("name") or "",
+                team_id=(n.get("team") or {}).get("id") or "",
+            )
+        except Exception as e:
+            print("[ERROR] get_issue_summary_by_uuid: %s" % e)
+            return None
+
+    def count_sub_issues(self, parent_uuid: str) -> int:
+        """Número de sub-issues directos del padre."""
+        query = """
+        query($id: String!) {
+            issue(id: $id) {
+                children(first: 100) {
+                    nodes { id }
+                }
+            }
+        }
+        """
+        try:
+            response = self._make_request(query, {"id": parent_uuid})
+            ch = (response.get("data") or {}).get("issue") or {}
+            nodes = (ch.get("children") or {}).get("nodes") or []
+            return len(nodes)
+        except Exception:
+            return 0
+
     def update_issue_state(self, issue_id: str, state_name: str, team_id: str) -> bool:
         """
         Mueve un issue al estado indicado.
@@ -542,18 +795,70 @@ class LinearAPIClient:
             print(f"[ERROR] update_issue_state: {e}")
             return False
 
+    def get_issue_git_context(self, issue_uuid: str) -> LinearIssueGitContext:
+        """
+        Rama vinculada (branchName) y URLs de attachments (PR, enlaces).
+        La rama de Git suele estar en branchName; no siempre hay URL github.com
+        en los adjuntos.
+        """
+        query = """
+        query($issueId: String!) {
+            issue(id: $issueId) {
+                branchName
+                attachments {
+                    nodes {
+                        url
+                    }
+                }
+            }
+        }
+        """
+        try:
+            response = self._make_request(query, {"issueId": issue_uuid})
+            issue_data = response.get("data", {}).get("issue")
+            if not issue_data:
+                return LinearIssueGitContext(branch_name="", attachment_urls=[])
+            branch = issue_data.get("branchName") or ""
+            if isinstance(branch, str):
+                branch = branch.strip()
+            else:
+                branch = ""
+            nodes = issue_data.get("attachments", {}).get("nodes", [])
+            urls = []
+            for n in nodes:
+                u = (n.get("url") or "").strip()
+                if u:
+                    urls.append(u)
+            return LinearIssueGitContext(
+                branch_name=branch, attachment_urls=urls
+            )
+        except Exception as e:
+            print(f"[WARN] get_issue_git_context: {e}")
+            return LinearIssueGitContext(branch_name="", attachment_urls=[])
+
+    def get_issue_attachment_urls(self, issue_uuid: str) -> List[str]:
+        """Compatibilidad: solo URLs de adjuntos."""
+        return self.get_issue_git_context(issue_uuid).attachment_urls
+
     def _format_test_case_description(self, test_case: Dict) -> str:
-        """Formatea la descripción del caso de prueba para Linear"""
+        """Formatea la descripción del caso de prueba para Linear."""
+        if test_case.get("linear_description_is_complete") and test_case.get(
+            "description"
+        ):
+            return str(test_case["description"]).strip()
+
         description_parts = []
-        
-        # La descripción ya viene formateada desde app.py
-        # Solo necesitamos agregar los campos adicionales
-        
-        # Usar la descripción existente (ya tiene Criterio, Tipo y Prioridad)
-        if test_case.get('description'):
-            description_parts.append(test_case['description'])
-        
-        # Separador
+        suit = test_case.get("execution_suitability")
+        hint = (test_case.get("automation_hint") or "").strip()
+        if suit:
+            note = hint if hint else "—"
+            description_parts.append(
+                f"**Ejecución sugerida:** {suit}\n**Nota:** {note}"
+            )
+
+        if test_case.get("description"):
+            description_parts.append(test_case["description"])
+
         description_parts.append("\n---\n")
         
         # Precondiciones (convertir lista a texto)

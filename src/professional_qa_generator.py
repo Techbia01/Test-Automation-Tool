@@ -9,7 +9,7 @@ import sys
 import io
 import re
 from typing import List, Dict, Tuple, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 # Configurar encoding UTF-8 para Windows (soluciona error 'charmap' codec)
@@ -59,6 +59,122 @@ class TestType(Enum):
     UI = "UI"
 
 
+class ExecutionSuitability(Enum):
+    """Sugerencia de ejecución: manual o automatizable (lo ambiguo va como manual)."""
+
+    MANUAL = "Manual"
+    AUTOMATABLE = "Automatizable"
+
+
+def classify_execution_suitability(
+    title: str,
+    criterion: str,
+    steps: List[str],
+    expected_result: str,
+    test_type: TestType,
+) -> Tuple[ExecutionSuitability, str]:
+    """
+    Heurística: manual vs candidato a automatización (E2E/API).
+    Casos dudosos se clasifican como manual (ejecución a mano por defecto).
+    """
+    blob = " ".join(
+        [title, criterion, expected_result] + list(steps)
+    ).lower()
+
+    manual_terms = (
+        "usabilidad",
+        "accesibilidad",
+        "responsive",
+        "intuitivo",
+        "retroalimentación visual",
+        "explorator",
+        "texto legal",
+        "impresión",
+        "impresion ",
+        "notificación push",
+        "permiso del sistema",
+        "elementos interactivos responden",
+        "retroalimentación es inmediata",
+        "comportamiento es intuitivo",
+        "claramente interactivos",
+        "estilo apropiado",
+        "visualización correcta",
+        "se muestra correctamente con el estilo",
+    )
+    auto_terms = (
+        "backend",
+        "error 500",
+        "error 404",
+        "error 401",
+        "error 403",
+        "status code",
+        " código de estado",
+        "api ",
+        "endpoint",
+        "/api/",
+        "rest ",
+        "graphql",
+        "webhook",
+        "json ",
+        "lista vacía",
+        "lista vacia",
+        "sin resultados",
+        " persist",
+        "recargar la página",
+        "recarga la página",
+        "datos inválidos",
+        "datos invalidos",
+        "retorna error",
+        "http ",
+    )
+
+    m = sum(1 for t in manual_terms if t in blob)
+    a = sum(1 for t in auto_terms if t in blob)
+
+    if test_type == TestType.UI:
+        m += 1
+    if test_type == TestType.NEGATIVO and (
+        "500" in blob or "404" in blob or "backend" in blob
+    ):
+        a += 2
+
+    if "usabilidad" in criterion.lower():
+        return (
+            ExecutionSuitability.MANUAL,
+            "Criterio de usabilidad; validación manual recomendada.",
+        )
+    if "retroalimentación" in blob and "visual" in blob:
+        return (
+            ExecutionSuitability.MANUAL,
+            "Énfasis en feedback visual; mejor ejecución manual.",
+        )
+
+    if a >= 2 and m <= 1:
+        return (
+            ExecutionSuitability.AUTOMATABLE,
+            "Flujo verificable (UI/API); candidato a E2E o pruebas de contrato.",
+        )
+    if m >= 2 or (test_type == TestType.UI and m >= 1 and a == 0):
+        return (
+            ExecutionSuitability.MANUAL,
+            "Criterios subjetivos o UI; ejecución manual recomendada.",
+        )
+    if a >= 1 and m >= 1:
+        return (
+            ExecutionSuitability.MANUAL,
+            "Señales mixtas; ejecutar manualmente y valorar luego si automatizar.",
+        )
+    if a >= 1:
+        return (
+            ExecutionSuitability.MANUAL,
+            "Posible automatización futura; por ahora ejecución manual recomendada.",
+        )
+    return (
+        ExecutionSuitability.MANUAL,
+        "Clasificación no concluyente; ejecución manual hasta acordar criterio.",
+    )
+
+
 @dataclass
 class TestCase:
     """Caso de prueba profesional"""
@@ -70,29 +186,46 @@ class TestCase:
     preconditions: List[str]
     steps: List[str]
     expected_result: str
-    
+    execution_suitability: Optional[ExecutionSuitability] = field(default=None)
+    automation_hint: str = field(default="", repr=False)
+
+    def __post_init__(self) -> None:
+        if self.execution_suitability is None:
+            suit, hint = classify_execution_suitability(
+                self.title,
+                self.criterion,
+                self.steps,
+                self.expected_result,
+                self.test_type,
+            )
+            object.__setattr__(self, "execution_suitability", suit)
+            object.__setattr__(self, "automation_hint", hint)
+
     def to_dict(self) -> Dict:
         """Convierte el caso de prueba a diccionario para exportar"""
         return {
-            'test_case_id': self.id,
-            'title': self.title,
-            'description': self._format_description(),
-            'preconditions': self.preconditions,  # Lista, no string
-            'steps': self.steps,  # Lista, no string
-            'expected_result': self.expected_result,
-            'priority': self.priority.value,
-            'type': self.test_type.value
+            "test_case_id": self.id,
+            "title": self.title,
+            "description": self._format_description(),
+            "preconditions": self.preconditions,
+            "steps": self.steps,
+            "expected_result": self.expected_result,
+            "priority": self.priority.value,
+            "type": self.test_type.value,
+            "execution_suitability": self.execution_suitability.value,
+            "automation_hint": self.automation_hint,
         }
-    
+
     def _format_description(self) -> str:
         """Formatea la descripción para Linear con formato Markdown profesional"""
-        # Formatear precondiciones (formato Markdown)
-        preconditions_text = '\n'.join([f"- {p}" for p in self.preconditions])
-        
-        # Formatear pasos Gherkin (formato código)
-        steps_text = '\n'.join(self.steps)
-        
-        return f"""**Criterio de Aceptación:**
+        preconditions_text = "\n".join([f"- {p}" for p in self.preconditions])
+        steps_text = "\n".join(self.steps)
+        suit = self.execution_suitability.value
+        hint = self.automation_hint
+        exec_block = (
+            f"**Ejecución sugerida:** {suit}\n**Nota:** {hint}\n\n"
+        )
+        return f"""{exec_block}**Criterio de Aceptación:**
 {self.criterion}
 
 **Tipo:** {self.test_type.value} | **Prioridad:** {self.priority.value}
@@ -121,7 +254,14 @@ class ProfessionalQAGenerator:
             r'✅\s*(.+?)(?=\n✅|\n\n|$)',  # Con emoji
             r'(?:^|\n)[-•]\s*(.+?)(?=\n[-•]|\n\n|$)',  # Con bullets
         ]
-    
+        # True = logs detallados (UI, demos); False = ejecución batch silenciosa
+        self._qa_generation_verbose: bool = True
+
+    def _log_gen(self, *args, **kwargs) -> None:
+        """Imprime mensajes INFO/OK de extracción solo en modo verbose."""
+        if getattr(self, "_qa_generation_verbose", True):
+            print(*args, **kwargs)
+
     def _clean_technical_noise(self, text: str) -> str:
         """
         Limpia el texto de ruido técnico (código, URLs, ejemplos JSON)
@@ -159,9 +299,12 @@ class ProfessionalQAGenerator:
         except Exception as e:
             print(f"[WARN] Error limpiando Campos: {e}", flush=True)
         
-        print(f"[INFO] Texto limpiado: {len(text)} -> {len(cleaned)} caracteres", flush=True)
+        self._log_gen(
+            f"[INFO] Texto limpiado: {len(text)} -> {len(cleaned)} caracteres",
+            flush=True,
+        )
         return cleaned
-    
+
     def extract_criteria_from_text(self, text: str) -> List[str]:
         """
         Extrae criterios de aceptación del texto de forma ULTRA ROBUSTA
@@ -171,38 +314,67 @@ class ProfessionalQAGenerator:
         Ahora usa parser adaptativo que detecta automáticamente el tipo de estructura.
         """
         criteria = []
-        
-        print("[INFO] Iniciando extracción de criterios...", flush=True)
-        print(f"[INFO] Tamaño del texto: {len(text)} caracteres", flush=True)
-        
+
+        self._log_gen("[INFO] Iniciando extracción de criterios...", flush=True)
+        self._log_gen(
+            f"[INFO] Tamaño del texto: {len(text)} caracteres",
+            flush=True,
+        )
+
         # PASO 0: Intentar usar parser adaptativo (si está disponible)
         if parse_user_story_adaptive is not None:
             try:
-                print("[INFO] Usando parser adaptativo para detectar estructura...", flush=True)
+                self._log_gen(
+                    "[INFO] Usando parser adaptativo para detectar estructura...",
+                    flush=True,
+                )
                 parsed_story = parse_user_story_adaptive(text)
-                
-                print(f"[INFO] Estructura detectada: {parsed_story.structure_type.value}", flush=True)
-                
+
+                self._log_gen(
+                    f"[INFO] Estructura detectada: {parsed_story.structure_type.value}",
+                    flush=True,
+                )
+
                 # Si es estructura narrativa o mixta, usar los criterios del parser adaptativo
-                if parsed_story.structure_type in [StoryStructureType.NARRATIVE, StoryStructureType.MIXED]:
+                if parsed_story.structure_type in [
+                    StoryStructureType.NARRATIVE,
+                    StoryStructureType.MIXED,
+                ]:
                     criteria = parsed_story.acceptance_criteria
                     if criteria:
-                        print(f"[OK] {len(criteria)} criterios extraídos con parser adaptativo (narrativo/mixto)", flush=True)
+                        self._log_gen(
+                            f"[OK] {len(criteria)} criterios extraídos con parser "
+                            "adaptativo (narrativo/mixto)",
+                            flush=True,
+                        )
                         # Complementar con análisis técnico si hay pocos criterios
                         if len(criteria) < 5:
-                            print("[INFO] Complementando con análisis técnico...", flush=True)
+                            self._log_gen(
+                                "[INFO] Complementando con análisis técnico...",
+                                flush=True,
+                            )
                             technical_criteria = self._extract_technical_requirements(text)
                             criteria.extend(technical_criteria)
                         return criteria
                 # Si es tradicional, continuar con el método original (más robusto para ese formato)
                 elif parsed_story.structure_type == StoryStructureType.TRADITIONAL:
-                    print("[INFO] Estructura tradicional detectada, usando método robusto original...", flush=True)
+                    self._log_gen(
+                        "[INFO] Estructura tradicional detectada, usando método "
+                        "robusto original...",
+                        flush=True,
+                    )
                     # Continuar con el método original (más abajo)
                 else:
-                    print("[INFO] Estructura desconocida, usando método robusto original...", flush=True)
+                    self._log_gen(
+                        "[INFO] Estructura desconocida, usando método robusto original...",
+                        flush=True,
+                    )
                     # Continuar con el método original
             except Exception as e:
-                print(f"[WARN] Error en parser adaptativo, usando método original: {e}", flush=True)
+                print(
+                    f"[WARN] Error en parser adaptativo, usando método original: {e}",
+                    flush=True,
+                )
                 # Continuar con el método original
         
         # PASO 0: Limpiar el texto de ruido (código JSON, URLs, etc.)
@@ -221,12 +393,18 @@ class ProfessionalQAGenerator:
             match = re.search(pattern, cleaned_text, re.IGNORECASE | re.DOTALL)
             if match:
                 criteria_text = match.group(1).strip()
-                print(f"[OK] Sección de criterios encontrada (patrón: {pattern[:30]}...)", flush=True)
+                self._log_gen(
+                    f"[OK] Sección de criterios encontrada (patrón: {pattern[:30]}...)",
+                    flush=True,
+                )
                 break
-        
+
         if not criteria_text:
-            print("[WARN] No se encontró sección explícita de criterios", flush=True)
-            print("[INFO] Buscando criterios en todo el texto...", flush=True)
+            print(
+                "[WARN] No se encontró sección explícita de criterios",
+                flush=True,
+            )
+            self._log_gen("[INFO] Buscando criterios en todo el texto...", flush=True)
             # Si no hay sección explícita, usar todo el texto después de "Descripción"
             desc_match = re.search(r'Descripci[oó]n[:\s]*(.+)$', cleaned_text, re.IGNORECASE | re.DOTALL)
             if desc_match:
@@ -244,14 +422,24 @@ class ProfessionalQAGenerator:
         )
         if gherkin_criteria:
             criteria = [c.strip() for c in gherkin_criteria]
-            print(f"[OK] {len(criteria)} criterios encontrados (formato Gherkin Given/When/Then)", flush=True)
-            
+            self._log_gen(
+                f"[OK] {len(criteria)} criterios encontrados "
+                "(formato Gherkin Given/When/Then)",
+                flush=True,
+            )
+
             # Si solo hay pocos criterios Gherkin, complementar con criterios técnicos
             if len(criteria) < 5:
-                print("[INFO] Pocos criterios Gherkin, complementando con análisis técnico...", flush=True)
+                self._log_gen(
+                    "[INFO] Pocos criterios Gherkin, complementando con análisis técnico...",
+                    flush=True,
+                )
                 technical_criteria = self._extract_technical_requirements(text)
                 criteria.extend(technical_criteria)
-                print(f"[OK] Total: {len(criteria)} criterios (Gherkin + técnicos)", flush=True)
+                self._log_gen(
+                    f"[OK] Total: {len(criteria)} criterios (Gherkin + técnicos)",
+                    flush=True,
+                )
             
             return criteria
         
@@ -259,14 +447,23 @@ class ProfessionalQAGenerator:
         emoji_criteria = re.findall(r'[✅✓]\s*([^\n✅✓]+)', criteria_text)
         if emoji_criteria:
             criteria = [c.strip() for c in emoji_criteria if len(c.strip()) > 10]
-            print(f"[OK] {len(criteria)} criterios encontrados con emojis", flush=True)
-            
+            self._log_gen(
+                f"[OK] {len(criteria)} criterios encontrados con emojis",
+                flush=True,
+            )
+
             # NUEVO: Complementar con reglas de negocio y ejemplos si hay pocos criterios
             if len(criteria) < 8:
-                print("[INFO] Pocos criterios con emojis, complementando con reglas de negocio...", flush=True)
+                self._log_gen(
+                    "[INFO] Pocos criterios con emojis, complementando con reglas de negocio...",
+                    flush=True,
+                )
                 business_rules = self._extract_business_rules(text)
                 criteria.extend(business_rules)
-                print(f"[OK] Total: {len(criteria)} criterios (emojis + reglas)", flush=True)
+                self._log_gen(
+                    f"[OK] Total: {len(criteria)} criterios (emojis + reglas)",
+                    flush=True,
+                )
             
             return criteria
         
@@ -274,18 +471,29 @@ class ProfessionalQAGenerator:
         numbered_criteria = re.findall(r'(?:^|\n)\s*\d+[\.)]\s*([^\n]+)', criteria_text, re.MULTILINE)
         if numbered_criteria:
             criteria = [c.strip() for c in numbered_criteria if len(c.strip()) > 10]
-            print(f"[OK] {len(criteria)} criterios encontrados (lista numerada)", flush=True)
+            self._log_gen(
+                f"[OK] {len(criteria)} criterios encontrados (lista numerada)",
+                flush=True,
+            )
             return criteria
-        
+
         # 2C: Bullets (-, •, *)
-        bullet_criteria = re.findall(r'(?:^|\n)\s*[-•*]\s*([^\n]+)', criteria_text, re.MULTILINE)
+        bullet_criteria = re.findall(
+            r'(?:^|\n)\s*[-•*]\s*([^\n]+)', criteria_text, re.MULTILINE
+        )
         if bullet_criteria:
             criteria = [c.strip() for c in bullet_criteria if len(c.strip()) > 10]
-            print(f"[OK] {len(criteria)} criterios encontrados (bullets)", flush=True)
+            self._log_gen(
+                f"[OK] {len(criteria)} criterios encontrados (bullets)",
+                flush=True,
+            )
             return criteria
-        
+
         # MÉTODO 3: Dividir por líneas y filtrar líneas que parezcan criterios
-        print("[INFO] No se encontraron listas, analizando líneas individuales...", flush=True)
+        self._log_gen(
+            "[INFO] No se encontraron listas, analizando líneas individuales...",
+            flush=True,
+        )
         lines = criteria_text.split('\n')
         
         for line in lines:
@@ -304,11 +512,14 @@ class ProfessionalQAGenerator:
                 criteria.append(line)
         
         if criteria:
-            print(f"[OK] {len(criteria)} criterios encontrados (análisis de líneas)", flush=True)
+            self._log_gen(
+                f"[OK] {len(criteria)} criterios encontrados (análisis de líneas)",
+                flush=True,
+            )
             return criteria
-        
+
         # MÉTODO 4: Último recurso - dividir por frases (punto + mayúscula)
-        print("[INFO] Intentando dividir por frases...", flush=True)
+        self._log_gen("[INFO] Intentando dividir por frases...", flush=True)
         sentences = re.split(r'\.\s+(?=[A-ZÁÉÍÓÚÜÑ])', criteria_text)
         
         for sentence in sentences:
@@ -318,9 +529,15 @@ class ProfessionalQAGenerator:
                 criteria.append(sentence)
         
         if criteria:
-            print(f"[OK] {len(criteria)} criterios encontrados (división por frases)", flush=True)
+            self._log_gen(
+                f"[OK] {len(criteria)} criterios encontrados (división por frases)",
+                flush=True,
+            )
         else:
-            print("[ERROR] No se pudieron extraer criterios con ningún método", flush=True)
+            print(
+                "[ERROR] No se pudieron extraer criterios con ningún método",
+                flush=True,
+            )
         
         return criteria
     
@@ -330,8 +547,8 @@ class ProfessionalQAGenerator:
         Especialmente útil para HUs con pocas marcas explícitas pero mucha lógica
         """
         business_criteria = []
-        
-        print("[INFO] Analizando reglas de negocio y ejemplos...", flush=True)
+
+        self._log_gen("[INFO] Analizando reglas de negocio y ejemplos...", flush=True)
         
         # 1. BUSCAR SECCIÓN "Reglas de negocio"
         try:
@@ -420,12 +637,18 @@ class ProfessionalQAGenerator:
         except Exception as e:
             print(f"[WARN] Error extrayendo reglas de actualización: {e}", flush=True)
         
-        print(f"[OK] {len(business_criteria)} criterios de reglas de negocio extraídos", flush=True)
-        
+        self._log_gen(
+            f"[OK] {len(business_criteria)} criterios de reglas de negocio extraídos",
+            flush=True,
+        )
+
         # Limitar a los 15 más relevantes si hay demasiados
         if len(business_criteria) > 15:
             business_criteria = business_criteria[:15]
-            print(f"[INFO] Limitando a 15 criterios de negocio más relevantes", flush=True)
+            self._log_gen(
+                "[INFO] Limitando a 15 criterios de negocio más relevantes",
+                flush=True,
+            )
         
         return business_criteria
     
@@ -435,8 +658,8 @@ class ProfessionalQAGenerator:
         Genera criterios de prueba basándose en la lógica de negocio descrita
         """
         technical_criteria = []
-        
-        print("[INFO] Analizando lógica de negocio técnica...", flush=True)
+
+        self._log_gen("[INFO] Analizando lógica de negocio técnica...", flush=True)
         
         # Buscar secciones específicas de lógica técnica
         sections_to_analyze = []
@@ -508,12 +731,18 @@ class ProfessionalQAGenerator:
             if len(integration) > 3:
                 technical_criteria.append(f"Integración con {integration}")
         
-        print(f"[OK] {len(technical_criteria)} criterios técnicos extraídos", flush=True)
-        
+        self._log_gen(
+            f"[OK] {len(technical_criteria)} criterios técnicos extraídos",
+            flush=True,
+        )
+
         # Limitar a los 10 más relevantes si hay demasiados
         if len(technical_criteria) > 10:
             technical_criteria = technical_criteria[:10]
-            print(f"[INFO] Limitando a 10 criterios más relevantes", flush=True)
+            self._log_gen(
+                "[INFO] Limitando a 10 criterios más relevantes",
+                flush=True,
+            )
         
         return technical_criteria
     
@@ -685,6 +914,7 @@ class ProfessionalQAGenerator:
         user_story_text: str,
         project_name: str = "",
         project_context: Optional[str] = None,
+        verbose_log: bool = True,
     ) -> List[TestCase]:
         """
         Genera casos de prueba profesionales a partir de una historia de usuario
@@ -695,13 +925,34 @@ class ProfessionalQAGenerator:
             user_story_text: Texto completo de la HU
             project_name: Nombre del proyecto (opcional)
             project_context: Contexto adicional del proyecto (ej. README/estructura de GitHub)
+            verbose_log: Si False, no vuelca contexto GitHub ni trazas de extracción (batch/CI).
 
         Returns:
             Lista de casos de prueba generados
         """
-        print("\n" + "="*80)
-        print("[INFO] GENERADOR PROFESIONAL DE CASOS DE PRUEBA MEJORADO")
-        print("="*80)
+        prev_verbose = getattr(self, "_qa_generation_verbose", True)
+        self._qa_generation_verbose = verbose_log
+        try:
+            return self._generate_test_cases_impl(
+                user_story_text,
+                project_name,
+                project_context,
+                verbose_log,
+            )
+        finally:
+            self._qa_generation_verbose = prev_verbose
+
+    def _generate_test_cases_impl(
+        self,
+        user_story_text: str,
+        project_name: str,
+        project_context: Optional[str],
+        verbose_log: bool,
+    ) -> List[TestCase]:
+        if verbose_log:
+            print("\n" + "=" * 80)
+            print("[INFO] GENERADOR PROFESIONAL DE CASOS DE PRUEBA MEJORADO")
+            print("=" * 80)
 
         effective_text = user_story_text
         if project_context and project_context.strip():
@@ -709,31 +960,68 @@ class ProfessionalQAGenerator:
                 "Contexto del proyecto:\n" + project_context.strip() + "\n\n"
                 "Historia de usuario:\n" + user_story_text
             )
-            print("[INFO] Contexto de proyecto (GitHub/etc.) incluido para generación")
+            if verbose_log:
+                print("[INFO] Contexto de proyecto (GitHub/etc.) incluido para generación")
+                _gh_log_limit = 20000
+                _gh_raw = project_context.strip()
+                print("\n" + "-" * 80)
+                print(
+                    "[INFO] INFORMACIÓN DESDE GITHUB (rama, README, estructura) — "
+                    "%d caracteres" % len(_gh_raw)
+                )
+                print("-" * 80)
+                if len(_gh_raw) > _gh_log_limit:
+                    print(_gh_raw[:_gh_log_limit])
+                    print(
+                        "\n... [truncado en log a %d caracteres; total %d]\n"
+                        % (_gh_log_limit, len(_gh_raw))
+                    )
+                else:
+                    print(_gh_raw)
+                print("-" * 80 + "\n")
 
         # Extraer contexto completo de la HU usando parser adaptativo
         parsed_story = None
         if parse_user_story_adaptive is not None:
             try:
                 parsed_story = parse_user_story_adaptive(effective_text)
-                print(f"[INFO] Contexto extraído - Tipo: {parsed_story.structure_type.value}")
-                print(f"[INFO] - Título: {parsed_story.title[:50]}...")
-                print(f"[INFO] - Contexto: {parsed_story.context[:50] if parsed_story.context else 'N/A'}...")
-                print(f"[INFO] - Descripción: {parsed_story.description[:50] if parsed_story.description else 'N/A'}...")
-                print(f"[INFO] - Flujos: {len(parsed_story.user_flows)}")
-                print(f"[INFO] - Estados: {len(parsed_story.states)}")
-                print(f"[INFO] - Elementos UI: {len(parsed_story.ui_elements)}")
+                if verbose_log:
+                    if project_context and project_context.strip():
+                        print(
+                            "[INFO] Parser adaptativo (mezcla GitHub + HU; "
+                            "título/flujos no son solo la historia):"
+                        )
+                    print(
+                        f"[INFO] Contexto extraído - Tipo: "
+                        f"{parsed_story.structure_type.value}"
+                    )
+                    print(f"[INFO] - Título: {parsed_story.title[:50]}...")
+                    ctx = parsed_story.context[:50] if parsed_story.context else "N/A"
+                    print(f"[INFO] - Contexto: {ctx}...")
+                    desc = (
+                        parsed_story.description[:50]
+                        if parsed_story.description
+                        else "N/A"
+                    )
+                    print(f"[INFO] - Descripción: {desc}...")
+                    print(f"[INFO] - Flujos: {len(parsed_story.user_flows)}")
+                    print(f"[INFO] - Estados: {len(parsed_story.states)}")
+                    print(
+                        f"[INFO] - Elementos UI: {len(parsed_story.ui_elements)}"
+                    )
             except Exception as e:
                 print(f"[WARN] Error usando parser adaptativo: {e}", flush=True)
 
         # Extraer criterios de aceptación (usando texto efectivo con contexto si existe)
         criteria = self.extract_criteria_from_text(effective_text)
-        
-        print(f"[OK] Criterios de aceptación encontrados: {len(criteria)}")
-        for i, c in enumerate(criteria, 1):
-            print(f"  {i}. {c[:70]}{'...' if len(c) > 70 else ''}")
-        print("="*80)
-        
+
+        if verbose_log:
+            print(f"[OK] Criterios de aceptación encontrados: {len(criteria)}")
+            for i, c in enumerate(criteria, 1):
+                tail = "..." if len(c) > 70 else ""
+                print(f"  {i}. {c[:70]}{tail}")
+            print("=" * 80)
+
         if not criteria:
             print("[ERROR] No se pudieron extraer criterios de aceptación")
             return []
@@ -762,13 +1050,21 @@ class ProfessionalQAGenerator:
             parsed_story=parsed_story  # Pasar contexto completo
         )
         test_cases.extend(global_cases)
-        
-        print(f"[OK] {len(test_cases)} casos de prueba generados exitosamente")
-        print("="*80 + "\n")
-        
+
+        if verbose_log:
+            print(f"[OK] {len(test_cases)} casos de prueba generados exitosamente")
+            print("=" * 80 + "\n")
+
         return test_cases
-    
-    def _decompose_criterion_into_test_cases(self, criterion: str, start_number: int, project_name: str, user_story_text: str, parsed_story=None) -> List[TestCase]:
+
+    def _decompose_criterion_into_test_cases(
+        self,
+        criterion: str,
+        start_number: int,
+        project_name: str,
+        user_story_text: str,
+        parsed_story=None,
+    ) -> List[TestCase]:
         """
         Genera casos de prueba ÚNICOS y NO redundantes a partir de un criterio de aceptación.
         
@@ -2463,6 +2759,10 @@ if __name__ == "__main__":
     print("\n=== CASOS DE PRUEBA GENERADOS ===\n")
     for tc in test_cases:
         print(f"{tc.id}. {tc.title}")
-        print(f"   Tipo: {tc.test_type.value} | Prioridad: {tc.priority.value}")
+        print(
+            f"   Tipo: {tc.test_type.value} | Prioridad: {tc.priority.value} | "
+            f"Ejecución: {tc.execution_suitability.value}"
+        )
+        print(f"   Nota: {tc.automation_hint}")
         print()
 
