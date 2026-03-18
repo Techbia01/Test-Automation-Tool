@@ -47,10 +47,14 @@ output/
 !package.json
 !tsconfig.json
 !pyrightconfig.json
+!automation_config.example.json
 
 # Archivos de prueba y debug
 test_*.py
 debug_*.py
+# Excepciones: módulos core requeridos por la app
+!src/test_case_automation.py
+!src/test_templates.py
 quick_test.py
 verificar_*.py
 diagnostico*.py
@@ -93,11 +97,12 @@ respaldo_*.db
 respaldos/
 *~
 
-# Variables de entorno
+# Variables de entorno (no subir .env con secretos)
 .env
 .env.local
 .env.*.local
 *.env
+!.env.example
 
 # Archivos ejecutables
 *.exe

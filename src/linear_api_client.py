@@ -16,6 +16,17 @@ class LinearIssue:
     priority: int
     labels: List[str]
 
+
+@dataclass
+class LinearIssueSummary:
+    """Resumen de issue para listado (ej. por estado)."""
+    id: str
+    identifier: str
+    title: str
+    description: str
+    state: str
+    team_id: str
+
 class LinearAPIClient:
     """Cliente para interactuar con la API de Linear"""
     
@@ -405,7 +416,132 @@ class LinearAPIClient:
         except Exception as e:
             print(f"[ERROR] Error obteniendo estados: {e}")
             return None
-    
+
+    def _get_state_id_by_name(self, team_id: str, state_name: str) -> Optional[str]:
+        """Obtiene el ID del estado del equipo por nombre (ej. 'TC Generator')."""
+        query = """
+        query($teamId: String!) {
+            team(id: $teamId) {
+                states {
+                    nodes {
+                        id
+                        name
+                    }
+                }
+            }
+        }
+        """
+        try:
+            response = self._make_request(query, {"teamId": team_id})
+            states = response.get("data", {}).get("team", {}).get("states", {}).get("nodes", [])
+            for state in states:
+                if state.get("name") == state_name:
+                    return state.get("id")
+            return None
+        except Exception as e:
+            print(f"[ERROR] Error obteniendo estado por nombre: {e}")
+            return None
+
+    def list_issues_by_state(
+        self,
+        state_name: str,
+        team_id: Optional[str] = None,
+        team_ids: Optional[List[str]] = None,
+        first: int = 50,
+    ) -> List[LinearIssueSummary]:
+        """
+        Lista issues que están en el estado indicado.
+        state_name: nombre del estado en la UI de Linear (ej. 'TC Generator').
+        team_id: si se indica, solo se buscan issues de ese equipo.
+        team_ids: si se indica, solo se buscan en esos equipos; si team_id y team_ids son None, se usan todos.
+        first: máximo de issues por equipo.
+        """
+        teams_to_use: List[Dict] = []
+        if team_id:
+            teams = self.get_teams()
+            t = next((x for x in teams if x["id"] == team_id), None)
+            if t:
+                teams_to_use = [t]
+        elif team_ids:
+            teams = self.get_teams()
+            teams_to_use = [x for x in teams if x["id"] in team_ids]
+        else:
+            teams_to_use = self.get_teams()
+
+        result: List[LinearIssueSummary] = []
+        for team in teams_to_use:
+            tid = team["id"]
+            state_id = self._get_state_id_by_name(tid, state_name)
+            if not state_id:
+                continue
+            query = """
+            query($filter: IssueFilter!, $first: Int!) {
+                issues(filter: $filter, first: $first) {
+                    nodes {
+                        id
+                        identifier
+                        title
+                        description
+                        state { name }
+                        team { id }
+                    }
+                }
+            }
+            """
+            variables = {
+                "filter": {"state": {"id": {"eq": state_id}}, "team": {"id": {"eq": tid}}},
+                "first": first,
+            }
+            try:
+                response = self._make_request(query, variables)
+                nodes = response.get("data", {}).get("issues", {}).get("nodes", [])
+                for n in nodes:
+                    result.append(
+                        LinearIssueSummary(
+                            id=n["id"],
+                            identifier=n["identifier"],
+                            title=n.get("title") or "",
+                            description=(n.get("description") or "") or "",
+                            state=(n.get("state") or {}).get("name") or "",
+                            team_id=(n.get("team") or {}).get("id") or tid,
+                        )
+                    )
+            except Exception as e:
+                print(f"[ERROR] list_issues_by_state para equipo {tid}: {e}")
+        return result
+
+    def update_issue_state(self, issue_id: str, state_name: str, team_id: str) -> bool:
+        """
+        Mueve un issue al estado indicado.
+        issue_id: UUID del issue (id interno de Linear).
+        state_name: nombre del estado en la UI (ej. 'Ready for QA').
+        team_id: ID del equipo (para resolver el workflow state).
+        """
+        state_id = self._get_state_id_by_name(team_id, state_name)
+        if not state_id:
+            print(f"[WARN] Estado '{state_name}' no encontrado en el equipo")
+            return False
+        mutation = """
+        mutation($id: String!, $input: IssueUpdateInput!) {
+            issueUpdate(id: $id, input: $input) {
+                success
+                issue { id state { name } }
+            }
+        }
+        """
+        try:
+            response = self._make_request(
+                mutation,
+                {"id": issue_id, "input": {"stateId": state_id}},
+            )
+            data = response.get("data", {}).get("issueUpdate", {})
+            if data.get("success"):
+                return True
+            return False
+        except Exception as e:
+            print(f"[ERROR] update_issue_state: {e}")
+            return False
+
     def _format_test_case_description(self, test_case: Dict) -> str:
         """Formatea la descripción del caso de prueba para Linear"""
         description_parts = []

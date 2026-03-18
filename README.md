@@ -15,6 +15,7 @@ Sistema web completo para generar y gestionar casos de prueba funcionales con in
 - ✅ **API Key persistente** (se guarda en el navegador)
 - ✅ **100% local** - Cada usuario tiene sus propios datos
 - ✅ **UI moderna y responsive** con diseño profesional
+- ✅ **Automatización sin intervención**: lectura de historias desde Linear (por estado), contexto desde GitHub, generación y subida de casos por script o cron
 
 ---
 
@@ -364,6 +365,19 @@ Estos scripts:
 3. Los casos se suben como sub-issues de la HU
 4. Se asocian automáticamente al equipo correcto (FIN, TEC, etc.)
 5. Estado inicial: **"Todo"** (listo para trabajar)
+
+---
+
+## 🤖 Automatización (Linear + GitHub)
+
+Puedes ejecutar la generación de casos **sin abrir la web**: el script lee historias de Linear en un estado configurado (por defecto **TC Generator**), opcionalmente usa contexto de un repositorio GitHub (README y estructura) para mejorar los casos, genera los casos de prueba y los sube como sub-issues en Linear.
+
+- **Seguridad:** Usa un archivo `.env` para las claves (copia `.env.example` a `.env` y rellena; `.env` no se sube a Git).
+- **Variables:** `LINEAR_API_KEY` (obligatorio), `LINEAR_TARGET_STATE`, `LINEAR_STATE_AFTER_SUCCESS`, `GITHUB_DEFAULT_REPO`, `GITHUB_TOKEN` (opcional).
+- **Ejecución**: desde la raíz del proyecto: `python3 scripts/run_linear_automation.py`.
+- **Programación**: se puede ejecutar por cron (ej. cada 15 min).
+
+Documentación completa (incluye **cómo probar** paso a paso): [docs/AUTOMATIZACION_LINEAR_GITHUB.md](docs/AUTOMATIZACION_LINEAR_GITHUB.md).
 
 ---
 

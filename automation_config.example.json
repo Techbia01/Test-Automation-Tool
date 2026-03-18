@@ -1,0 +1,8 @@
+{
+  "linear_api_key": "",
+  "linear_target_state": "TC Generator",
+  "linear_state_after_success": "Ready for QA",
+  "linear_team_ids": [],
+  "github_default_repo": "",
+  "github_token": ""
+}

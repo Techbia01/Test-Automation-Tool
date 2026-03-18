@@ -8,7 +8,7 @@ Inspirado en las mejores prácticas de QA profesional
 import sys
 import io
 import re
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
 
@@ -680,28 +680,42 @@ class ProfessionalQAGenerator:
         
         return any(text_lower.startswith(start) for start in valid_starts)
     
-    def generate_test_cases(self, user_story_text: str, project_name: str = "") -> List[TestCase]:
+    def generate_test_cases(
+        self,
+        user_story_text: str,
+        project_name: str = "",
+        project_context: Optional[str] = None,
+    ) -> List[TestCase]:
         """
         Genera casos de prueba profesionales a partir de una historia de usuario
         DESCOMPONE cada criterio en múltiples casos específicos (felices, errores, usabilidad, etc.)
         Ahora usa el contexto completo de la HU para generar casos más específicos y menos ambiguos.
-        
+
         Args:
             user_story_text: Texto completo de la HU
             project_name: Nombre del proyecto (opcional)
-            
+            project_context: Contexto adicional del proyecto (ej. README/estructura de GitHub)
+
         Returns:
             Lista de casos de prueba generados
         """
         print("\n" + "="*80)
         print("[INFO] GENERADOR PROFESIONAL DE CASOS DE PRUEBA MEJORADO")
         print("="*80)
-        
+
+        effective_text = user_story_text
+        if project_context and project_context.strip():
+            effective_text = (
+                "Contexto del proyecto:\n" + project_context.strip() + "\n\n"
+                "Historia de usuario:\n" + user_story_text
+            )
+            print("[INFO] Contexto de proyecto (GitHub/etc.) incluido para generación")
+
         # Extraer contexto completo de la HU usando parser adaptativo
         parsed_story = None
         if parse_user_story_adaptive is not None:
             try:
-                parsed_story = parse_user_story_adaptive(user_story_text)
+                parsed_story = parse_user_story_adaptive(effective_text)
                 print(f"[INFO] Contexto extraído - Tipo: {parsed_story.structure_type.value}")
                 print(f"[INFO] - Título: {parsed_story.title[:50]}...")
                 print(f"[INFO] - Contexto: {parsed_story.context[:50] if parsed_story.context else 'N/A'}...")
@@ -711,9 +725,9 @@ class ProfessionalQAGenerator:
                 print(f"[INFO] - Elementos UI: {len(parsed_story.ui_elements)}")
             except Exception as e:
                 print(f"[WARN] Error usando parser adaptativo: {e}", flush=True)
-        
-        # Extraer criterios de aceptación
-        criteria = self.extract_criteria_from_text(user_story_text)
+
+        # Extraer criterios de aceptación (usando texto efectivo con contexto si existe)
+        criteria = self.extract_criteria_from_text(effective_text)
         
         print(f"[OK] Criterios de aceptación encontrados: {len(criteria)}")
         for i, c in enumerate(criteria, 1):
