@@ -253,50 +253,41 @@ def process_linear_issue_for_qa(
             )
 
     # ── Selección de motor ───────────────────────────────────────────────────
-    if engine == "claude":
-        generators = [("Claude AI", _load_claude_generator())]
+    professional_cases = []
+
+    if engine == "rules":
+        rules_gen = ProfessionalQAGenerator()
+        rules_gen._qa_generation_verbose = verbose
+        professional_cases = _run_generator("Motor de reglas", rules_gen, issue, user_story_text, project_context, verbose)
+
+    elif engine == "claude":
+        professional_cases = _run_generator("Claude AI", _load_claude_generator(), issue, user_story_text, project_context, verbose)
+
     elif engine == "compare":
         rules_gen = ProfessionalQAGenerator()
         rules_gen._qa_generation_verbose = verbose
-        generators = [
-            ("Motor de reglas", rules_gen),
-            ("Claude AI", _load_claude_generator()),
-        ]
-    else:  # "rules" (default)
-        rules_gen = ProfessionalQAGenerator()
-        generators = [("Motor de reglas", rules_gen)]
-
-    professional_cases = []
-    for gen_label, gen in generators:
-        if engine == "compare":
-            print("[%s] Generando..." % gen_label)
-        try:
-            cases = gen.generate_test_cases(
-                user_story_text=user_story_text,
-                project_name=issue.title,
-                project_context=project_context or None,
-                verbose_log=verbose,
-            )
-        except Exception as e:
-            print("[ERROR][%s] Fallo generando casos: %s" % (gen_label, e))
-            if engine != "compare":
-                return "error_generation"
-            continue
-
-        if engine == "compare":
-            print("  → %d caso(s) generados por %s" % (len(cases), gen_label))
-            # En modo compare: unir casos de ambos motores (deduplicando por título)
+        for label, gen in [("Motor de reglas", rules_gen), ("Claude AI", _load_claude_generator())]:
+            print("[%s] Generando..." % label)
+            cases = _run_generator(label, gen, issue, user_story_text, project_context, verbose)
             seen = {tc.title.strip().lower() for tc in professional_cases}
             for tc in cases:
                 if tc.title.strip().lower() not in seen:
                     professional_cases.append(tc)
                     seen.add(tc.title.strip().lower())
-        else:
-            professional_cases = cases
+            print("  → %d caso(s) generados por %s" % (len(cases), label))
 
-    if not professional_cases:
-        print("[ERROR] Fallo generando casos.")
-        return "error_generation"
+    else:  # "auto" (default): Claude con fallback al motor de reglas
+        print("[INFO] Motor: Claude AI (con fallback a motor de reglas)")
+        try:
+            professional_cases = _run_generator("Claude AI", _load_claude_generator(), issue, user_story_text, project_context, verbose)
+        except SystemExit:
+            # _load_claude_generator hace sys.exit si no hay API key
+            professional_cases = []
+        if not professional_cases:
+            print("[WARN] Claude AI no generó casos; usando motor de reglas como fallback.")
+            rules_gen = ProfessionalQAGenerator()
+            rules_gen._qa_generation_verbose = verbose
+            professional_cases = _run_generator("Motor de reglas (fallback)", rules_gen, issue, user_story_text, project_context, verbose)
 
     if not professional_cases:
         print("[WARN] No se generaron casos para este issue.")
@@ -364,6 +355,20 @@ def process_linear_issue_for_qa(
     return "error_upload"
 
 
+def _run_generator(label, gen, issue, user_story_text, project_context, verbose):
+    """Ejecuta un generador y retorna los casos. Lista vacía si falla."""
+    try:
+        return gen.generate_test_cases(
+            user_story_text=user_story_text,
+            project_name=issue.title,
+            project_context=project_context or None,
+            verbose_log=verbose,
+        )
+    except Exception as e:
+        print("[ERROR][%s] Fallo generando casos: %s" % (label, e))
+        return []
+
+
 def _print_cases_compact(professional_cases) -> None:
     """Lista casos: id, título, ejecución sugerida, resultado (truncado)."""
     print("Casos generados (%d):" % len(professional_cases))
@@ -409,9 +414,15 @@ def run(verbose: bool = False, engine: str = "rules") -> None:
             )
         print("=" * 80)
     else:
+        engine_label = {
+            "auto": "Claude AI + fallback reglas",
+            "claude": "Claude AI",
+            "rules": "Motor de reglas",
+            "compare": "Ambos (unión)",
+        }.get(engine, engine)
         print(
             "[INFO] Linear → QA | motor: %s | estado: %s | issues (máx. 50)"
-            % (engine, target_state)
+            % (engine_label, target_state)
         )
 
     client = LinearAPIClient(api_key)
@@ -459,12 +470,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--engine",
-        choices=["rules", "claude", "compare"],
-        default="rules",
+        choices=["auto", "rules", "claude", "compare"],
+        default="auto",
         help=(
             "Motor de generación: "
-            "'rules' = motor de reglas (por defecto), "
-            "'claude' = Claude AI, "
+            "'auto' = Claude AI con fallback a motor de reglas (por defecto), "
+            "'rules' = solo motor de reglas, "
+            "'claude' = solo Claude AI, "
             "'compare' = ambos (sube la unión de casos)"
         ),
     )

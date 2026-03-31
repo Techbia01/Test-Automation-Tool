@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Generador de casos de prueba QA basado en Claude AI (claude-opus-4-6).
+Generador de casos de prueba QA basado en Claude AI (claude-haiku-4-5).
 Produce instancias de TestCase compatibles con ProfessionalQAGenerator.
 """
 
@@ -117,7 +117,7 @@ _PRIORITY_MAP = {
 
 class ClaudeQAGenerator:
     """
-    Generador de casos de prueba usando Claude claude-opus-4-6 con pensamiento adaptativo.
+    Generador de casos de prueba usando Claude claude-haiku-4-5 con pensamiento adaptativo.
     Misma interfaz que ProfessionalQAGenerator para que sea intercambiable.
     """
 
@@ -154,7 +154,7 @@ class ClaudeQAGenerator:
             return []
 
         if verbose_log:
-            print("[Claude] Enviando HU al modelo claude-opus-4-6...")
+            print("[Claude] Enviando HU al modelo claude-haiku-4-5...")
 
         user_message = _build_user_message(
             user_story_text, project_name, project_context
@@ -170,9 +170,8 @@ class ClaudeQAGenerator:
     def _call_api(self, user_message: str, verbose_log: bool) -> str:
         """Llama a la API con streaming y retorna el texto JSON de la respuesta."""
         with self._client.messages.stream(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5",
             max_tokens=8000,
-            thinking={"type": "adaptive"},
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         ) as stream:
