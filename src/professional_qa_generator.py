@@ -414,17 +414,45 @@ class ProfessionalQAGenerator:
         
         # MÉTODO 2: Extraer criterios con diferentes formatos
         
-        # 2A: FORMATO GHERKIN (Given/When/Then) - PRIORIDAD MÁXIMA para HUs técnicas
-        gherkin_criteria = re.findall(
-            r'Given\s+[^\.]+When\s+[^\.]+Then\s+[^\.]+',
-            criteria_text,
-            re.IGNORECASE
+        # 2A: FORMATO GHERKIN (Given/When/Then y español Dado/Cuando/Entonces)
+        # PRIORIDAD MÁXIMA para HUs técnicas con escenarios.
+        # Soporta: continuaciones con Y/E/Pero con sangría, y escenarios sin "Dado que".
+        _cont_en = r'(?:\n+\s*(?:And|But)\s+[^\n]+)*'
+        _cont_es = r'(?:\n+\s*(?:Y|E|Pero)\s+[^\n]+)*'
+        _gherkin_en = (
+            r'Given\s+[^\n]+' + _cont_en +
+            r'\s*When\s+[^\n]+' + _cont_en +
+            r'\s*Then\s+[^\n]+' + _cont_en
         )
+        # ES completo: Dado que ... Cuando ... Entonces ...
+        _gherkin_es_full = (
+            r'Dado\s+que\s+[^\n]+' + _cont_es +
+            r'\s*Cuando\s+[^\n]+' + _cont_es +
+            r'\s*Entonces\s+[^\n]+' + _cont_es
+        )
+        # ES parcial: Cuando ... Entonces ... (sin Dado que)
+        _gherkin_es_partial = (
+            r'Cuando\s+[^\n]+' + _cont_es +
+            r'\s*Entonces\s+[^\n]+' + _cont_es
+        )
+        # Recopilar todos los escenarios de todos los patrones (deduplicados por inicio de línea)
+        _seen_gherkin: set = set()
+        gherkin_criteria = []
+        for _pat in (_gherkin_en, _gherkin_es_full, _gherkin_es_partial):
+            for _match in re.findall(_pat, criteria_text, re.IGNORECASE | re.MULTILINE):
+                _key = _match.strip().splitlines()[0].strip().lower()[:60]
+                if _key not in _seen_gherkin:
+                    _seen_gherkin.add(_key)
+                    gherkin_criteria.append(_match)
+        # Descartar sub-escenarios: si un escenario "full" (con Dado que) ya contiene
+        # la parte "Cuando...Entonces", el parcial que la duplicaría se puede filtrar.
+        # Esto se maneja naturalmente con _seen_gherkin porque el partial matchea desde
+        # "Cuando", mientras el full matchea desde "Dado que" (primera línea distinta).
         if gherkin_criteria:
             criteria = [c.strip() for c in gherkin_criteria]
             self._log_gen(
                 f"[OK] {len(criteria)} criterios encontrados "
-                "(formato Gherkin Given/When/Then)",
+                "(formato Gherkin Given/When/Then o Dado/Cuando/Entonces)",
                 flush=True,
             )
 
@@ -435,59 +463,69 @@ class ProfessionalQAGenerator:
                     flush=True,
                 )
                 technical_criteria = self._extract_technical_requirements(text)
+                technical_criteria = self._filter_criteria_quality(technical_criteria)
                 criteria.extend(technical_criteria)
                 self._log_gen(
                     f"[OK] Total: {len(criteria)} criterios (Gherkin + técnicos)",
                     flush=True,
                 )
-            
+
             return criteria
         
         # 2B: Con emojis ✅ o ✓
         emoji_criteria = re.findall(r'[✅✓]\s*([^\n✅✓]+)', criteria_text)
         if emoji_criteria:
-            criteria = [c.strip() for c in emoji_criteria if len(c.strip()) > 10]
-            self._log_gen(
-                f"[OK] {len(criteria)} criterios encontrados con emojis",
-                flush=True,
+            criteria = self._filter_criteria_quality(
+                [c.strip() for c in emoji_criteria if len(c.strip()) > 10]
             )
+            if criteria:
+                self._log_gen(
+                    f"[OK] {len(criteria)} criterios encontrados con emojis",
+                    flush=True,
+                )
+                # Complementar con reglas de negocio si hay pocos criterios
+                if len(criteria) < 8:
+                    self._log_gen(
+                        "[INFO] Pocos criterios con emojis, complementando con reglas de negocio...",
+                        flush=True,
+                    )
+                    business_rules = self._filter_criteria_quality(
+                        self._extract_business_rules(text)
+                    )
+                    criteria.extend(business_rules)
+                    self._log_gen(
+                        f"[OK] Total: {len(criteria)} criterios (emojis + reglas)",
+                        flush=True,
+                    )
+                return criteria
 
-            # NUEVO: Complementar con reglas de negocio y ejemplos si hay pocos criterios
-            if len(criteria) < 8:
-                self._log_gen(
-                    "[INFO] Pocos criterios con emojis, complementando con reglas de negocio...",
-                    flush=True,
-                )
-                business_rules = self._extract_business_rules(text)
-                criteria.extend(business_rules)
-                self._log_gen(
-                    f"[OK] Total: {len(criteria)} criterios (emojis + reglas)",
-                    flush=True,
-                )
-            
-            return criteria
-        
-        # 2B: Listas numeradas (1., 2., etc.)
+        # 2C: Listas numeradas (1., 2., etc.)
         numbered_criteria = re.findall(r'(?:^|\n)\s*\d+[\.)]\s*([^\n]+)', criteria_text, re.MULTILINE)
         if numbered_criteria:
-            criteria = [c.strip() for c in numbered_criteria if len(c.strip()) > 10]
-            self._log_gen(
-                f"[OK] {len(criteria)} criterios encontrados (lista numerada)",
-                flush=True,
+            criteria = self._filter_criteria_quality(
+                [c.strip() for c in numbered_criteria if len(c.strip()) > 10]
             )
-            return criteria
+            if criteria:
+                self._log_gen(
+                    f"[OK] {len(criteria)} criterios encontrados (lista numerada)",
+                    flush=True,
+                )
+                return criteria
 
         # 2C: Bullets (-, •, *)
         bullet_criteria = re.findall(
             r'(?:^|\n)\s*[-•*]\s*([^\n]+)', criteria_text, re.MULTILINE
         )
         if bullet_criteria:
-            criteria = [c.strip() for c in bullet_criteria if len(c.strip()) > 10]
-            self._log_gen(
-                f"[OK] {len(criteria)} criterios encontrados (bullets)",
-                flush=True,
+            criteria = self._filter_criteria_quality(
+                [c.strip() for c in bullet_criteria if len(c.strip()) > 10]
             )
-            return criteria
+            if criteria:
+                self._log_gen(
+                    f"[OK] {len(criteria)} criterios encontrados (bullets)",
+                    flush=True,
+                )
+                return criteria
 
         # MÉTODO 3: Dividir por líneas y filtrar líneas que parezcan criterios
         self._log_gen(
@@ -495,22 +533,23 @@ class ProfessionalQAGenerator:
             flush=True,
         )
         lines = criteria_text.split('\n')
-        
+
         for line in lines:
             line = line.strip()
-            
+
             # Saltar líneas muy cortas o títulos
             if len(line) < 15:
                 continue
-            
+
             # Saltar líneas que son títulos de sección
             if re.match(r'^[A-Z][a-záéíóúüñ\s]+:$', line):
                 continue
-            
+
             # Si la línea parece un criterio, agregarla
             if self._looks_like_criterion(line):
                 criteria.append(line)
-        
+
+        criteria = self._filter_criteria_quality(criteria)
         if criteria:
             self._log_gen(
                 f"[OK] {len(criteria)} criterios encontrados (análisis de líneas)",
@@ -521,13 +560,14 @@ class ProfessionalQAGenerator:
         # MÉTODO 4: Último recurso - dividir por frases (punto + mayúscula)
         self._log_gen("[INFO] Intentando dividir por frases...", flush=True)
         sentences = re.split(r'\.\s+(?=[A-ZÁÉÍÓÚÜÑ])', criteria_text)
-        
+
         for sentence in sentences:
             sentence = sentence.strip().rstrip('.')
-            
+
             if self._is_valid_criterion(sentence):
                 criteria.append(sentence)
-        
+
+        criteria = self._filter_criteria_quality(criteria)
         if criteria:
             self._log_gen(
                 f"[OK] {len(criteria)} criterios encontrados (división por frases)",
@@ -538,7 +578,7 @@ class ProfessionalQAGenerator:
                 "[ERROR] No se pudieron extraer criterios con ningún método",
                 flush=True,
             )
-        
+
         return criteria
     
     def _extract_business_rules(self, full_text: str) -> List[str]:
@@ -908,7 +948,53 @@ class ProfessionalQAGenerator:
         ]
         
         return any(text_lower.startswith(start) for start in valid_starts)
-    
+
+    # Palabras clave de requisitos no funcionales que NO son criterios de aceptación
+    _NFR_KEYWORDS = (
+        "tiempo de respuesta", "latencia", "≤", "segundos", "milisegundos",
+        "stateless", "sin estado", "timeout", "rendimiento", "performance",
+        "disponibilidad", "sla ", "tps ", "rps ",
+    )
+    # Marcadores de markdown/secciones que no deben aparecer en un criterio
+    _MARKDOWN_MARKERS = ("##", "###", "🔹", "🔸", "📌", "🔺", "**🔹", "**🔸")
+
+    def _filter_criteria_quality(self, criteria: List[str]) -> List[str]:
+        """
+        Descarta criterios que son basura: markdown, secciones de contexto,
+        requisitos no funcionales, texto truncado o demasiado largo.
+        """
+        clean = []
+        for c in criteria:
+            stripped = c.strip()
+            if not stripped or len(stripped) < 20:
+                continue
+            # Rechazar si contiene marcadores de sección markdown
+            if any(m in stripped for m in self._MARKDOWN_MARKERS):
+                self._log_gen(f"[FILTER] Criterio con markdown descartado: {stripped[:60]}", flush=True)
+                continue
+            # Rechazar si es un requisito no funcional
+            lower = stripped.lower()
+            if any(kw in lower for kw in self._NFR_KEYWORDS):
+                self._log_gen(f"[FILTER] Requisito no funcional descartado: {stripped[:60]}", flush=True)
+                continue
+            # Rechazar si contiene texto de contexto/sección típica
+            if any(lower.startswith(prefix) for prefix in (
+                "situación actual", "hoy ese proceso", "el equipo comercial",
+                "componentes involucrados", "definición técnica",
+                "servicios externos", "backend:", "📂",
+            )):
+                self._log_gen(f"[FILTER] Texto de contexto descartado: {stripped[:60]}", flush=True)
+                continue
+            # Rechazar bloques muy largos (probablemente texto copiado en bloque)
+            if len(stripped) > 600:
+                self._log_gen(f"[FILTER] Criterio demasiado largo ({len(stripped)} chars) descartado", flush=True)
+                continue
+            clean.append(stripped)
+        removed = len(criteria) - len(clean)
+        if removed:
+            print(f"[INFO] _filter_criteria_quality: {removed} criterio(s) de baja calidad descartado(s)")
+        return clean
+
     def generate_test_cases(
         self,
         user_story_text: str,
@@ -1051,6 +1137,21 @@ class ProfessionalQAGenerator:
         )
         test_cases.extend(global_cases)
 
+        # Eliminar casos duplicados por título normalizado
+        seen_titles: set = set()
+        unique_cases = []
+        for tc in test_cases:
+            normalized = tc.title.strip().lower()
+            if normalized not in seen_titles:
+                seen_titles.add(normalized)
+                unique_cases.append(tc)
+            elif verbose_log:
+                print(f"[WARN] Caso duplicado eliminado: {tc.id} - {tc.title[:60]}")
+        removed = len(test_cases) - len(unique_cases)
+        if removed:
+            print(f"[INFO] {removed} caso(s) duplicado(s) eliminado(s) del set generado")
+        test_cases = unique_cases
+
         if verbose_log:
             print(f"[OK] {len(test_cases)} casos de prueba generados exitosamente")
             print("=" * 80 + "\n")
@@ -1069,7 +1170,7 @@ class ProfessionalQAGenerator:
         Genera casos de prueba ÚNICOS y NO redundantes a partir de un criterio de aceptación.
         
         REGLAS OBLIGATORIAS (QA Lead):
-        - Máximo 1 caso por criterio, salvo que aplique creación vs edición
+        - Mínimo 1 caso por criterio, salvo que aplique creación vs edición
         - Cada caso debe validar una regla de negocio distinta
         - No generar variantes del mismo caso con redacción diferente
         - No separar "persistencia" como caso distinto si pertenece al mismo flujo
@@ -1186,16 +1287,36 @@ class ProfessionalQAGenerator:
         
         return None
     
+    # Indicadores de HU orientada a API/Lambda (sin UI, sin "estado vacío" visual)
+    _API_INDICATORS = (
+        "lambda", "api ", "endpoint", "petición get", "petición post",
+        "request", "response", "http", "rest", "graphql", "webhook",
+        "payload", "json", "curl", "swagger",
+    )
+
+    def _is_api_story(self, user_story_text: str) -> bool:
+        """Detecta si la HU describe una API/Lambda sin UI relevante."""
+        lower = user_story_text.lower()
+        return sum(1 for kw in self._API_INDICATORS if kw in lower) >= 2
+
     def _generate_global_test_cases(self, start_number: int, project_name: str, user_story_text: str, parsed_story=None) -> List[TestCase]:
-        """Genera casos de prueba globales (estados vacíos generales, errores del sistema, etc.)"""
+        """Genera casos de prueba globales solo cuando son pertinentes al contexto."""
         test_cases = []
         counter = start_number
-        
-        # Solo generar casos globales si son relevantes para el contexto
-        # Si la HU es muy específica (narrativa), no agregar casos genéricos
-        if parsed_story and parsed_story.structure_type == StoryStructureType.NARRATIVE:
-            # Para HUs narrativas, solo agregar casos relevantes al contexto
-            if any("error" in flow.lower() or "falla" in flow.lower() for flow in parsed_story.user_flows):
+
+        is_api = self._is_api_story(user_story_text)
+
+        # HUs narrativas (Gherkin) o de API: solo agregar caso de error si la HU
+        # menciona manejo de fallos y aún no hay cobertura de error en los casos generados.
+        if (parsed_story and parsed_story.structure_type == StoryStructureType.NARRATIVE) or is_api:
+            story_lower = user_story_text.lower()
+            mentions_error_handling = any(
+                kw in story_lower for kw in (
+                    "si falla", "timeout", "error", "falla", "no retorne 500",
+                    "no debe retornar 500", "debe responder con",
+                )
+            )
+            if mentions_error_handling:
                 error_case = self._generate_backend_error_case(
                     test_number=counter,
                     project_name=project_name,
@@ -1204,16 +1325,15 @@ class ProfessionalQAGenerator:
                 test_cases.append(error_case)
                 counter += 1
         else:
-            # Para HUs tradicionales, agregar casos globales estándar
-            # Caso de estado vacío general
+            # HUs tradicionales (UI): agregar estado vacío + error 500
+            # (omitir 404 porque es redundante con el estado vacío en la mayoría de casos UI)
             empty_state_case = self._generate_general_empty_state_case(
                 test_number=counter,
                 project_name=project_name
             )
             test_cases.append(empty_state_case)
             counter += 1
-            
-            # Caso de error 500 del backend
+
             error_500_case = self._generate_backend_error_case(
                 test_number=counter,
                 project_name=project_name,
@@ -1221,16 +1341,7 @@ class ProfessionalQAGenerator:
             )
             test_cases.append(error_500_case)
             counter += 1
-            
-            # Caso de error 404 del backend
-            error_404_case = self._generate_backend_error_case(
-                test_number=counter,
-                project_name=project_name,
-                error_code=404
-            )
-            test_cases.append(error_404_case)
-            counter += 1
-        
+
         return test_cases
     
     # ========== MÉTODOS AUXILIARES PARA GENERAR CASOS ESPECÍFICOS ==========
@@ -1637,11 +1748,46 @@ class ProfessionalQAGenerator:
         """Genera un título profesional siguiendo el patrón: 'Validar que [evento] [entidad] [condición] [resultado]'"""
         return self._generate_professional_title(criterion, prefix)
     
+    @staticmethod
+    def _is_gherkin_criterion(criterion: str) -> bool:
+        """Devuelve True si el criterio es un escenario Gherkin (EN o ES)."""
+        lower = criterion.lower()
+        return (
+            ("when " in lower or "cuando " in lower) and
+            ("then " in lower or "entonces " in lower)
+        )
+
+    @staticmethod
+    def _title_from_gherkin(criterion: str) -> str:
+        """Extrae un título legible desde un escenario Gherkin tomando las cláusulas Entonces/Then."""
+        lines = criterion.splitlines()
+        then_lines = []
+        in_then = False
+        for line in lines:
+            stripped = line.strip()
+            lower = stripped.lower()
+            if lower.startswith("entonces ") or lower.startswith("then "):
+                in_then = True
+                # Extraer el texto después de la palabra clave
+                payload = re.sub(r'^(entonces|then)\s+', '', stripped, flags=re.IGNORECASE)
+                then_lines.append(payload)
+            elif in_then and (lower.startswith("y ") or lower.startswith("and ")):
+                payload = re.sub(r'^(y|and)\s+', '', stripped, flags=re.IGNORECASE)
+                then_lines.append(payload)
+            elif in_then:
+                break  # Salió del bloque Entonces
+        summary = "; ".join(then_lines[:3])  # Máximo 3 afirmaciones
+        if summary:
+            return f"Validar que {summary}"
+        return ""
+
     def _generate_professional_title(self, criterion: str, prefix: str = "") -> str:
         """
         Genera un título profesional completo siguiendo el patrón QA Senior:
         "Validar que [evento o acción] [entidad] [condición específica] [resultado esperado observable]"
-        
+
+        Para criterios Gherkin, extrae el título desde las cláusulas Entonces/Then.
+
         REGLAS ABSOLUTAS:
         - NO truncar frases
         - NO resumir
@@ -1654,11 +1800,17 @@ class ProfessionalQAGenerator:
         criterion_lower = criterion.lower()
         
         # PROHIBIR prefijos no permitidos
-        if prefix and prefix.lower() in ["persistencia de datos", "estado vacío", "manejo de error", "recurso no disponible", 
-                                         "usabilidad", "validación negativa", "elemento ui", "copia al portapapeles", 
+        if prefix and prefix.lower() in ["persistencia de datos", "estado vacío", "manejo de error", "recurso no disponible",
+                                         "usabilidad", "validación negativa", "elemento ui", "copia al portapapeles",
                                          "estado deshabilitado", "manejo de errores"]:
             prefix = ""  # Ignorar prefijos prohibidos
-        
+
+        # Si el criterio es un escenario Gherkin, extraer título desde Entonces/Then
+        if self._is_gherkin_criterion(criterion):
+            gherkin_title = self._title_from_gherkin(criterion)
+            if gherkin_title and len(gherkin_title) >= 30:
+                return gherkin_title
+
         # Extraer componentes del criterio
         evento_accion = self._extract_evento_accion(criterion)
         entidad = self._extract_entidad(criterion)
@@ -2292,10 +2444,20 @@ class ProfessionalQAGenerator:
         ]
     
     def _generate_contextual_steps(self, criterion: str, case_type: str, parsed_story=None) -> List[str]:
-        """Genera pasos específicos usando contexto de la HU y flujos extraídos"""
+        """Genera pasos específicos usando contexto de la HU y flujos extraídos."""
+        # Si el criterio ya es un escenario Gherkin, usar sus líneas directamente
+        if self._is_gherkin_criterion(criterion):
+            gherkin_steps = []
+            for line in criterion.splitlines():
+                stripped = line.strip()
+                if stripped:
+                    gherkin_steps.append(stripped)
+            if gherkin_steps:
+                return gherkin_steps
+
         steps = []
         criterion_lower = criterion.lower()
-        
+
         # Given: usar contexto de la HU
         if parsed_story and parsed_story.context:
             # Extraer información del contexto
@@ -2436,7 +2598,27 @@ class ProfessionalQAGenerator:
         return "El sistema cumple con el criterio especificado"
     
     def _generate_contextual_expected_result(self, criterion: str, case_type: str, parsed_story=None) -> str:
-        """Genera resultado esperado específico usando contexto de la HU"""
+        """Genera resultado esperado específico usando contexto de la HU."""
+        # Para criterios Gherkin, el resultado esperado son las cláusulas Entonces/Then
+        if self._is_gherkin_criterion(criterion):
+            lines = criterion.splitlines()
+            then_lines = []
+            in_then = False
+            for line in lines:
+                stripped = line.strip()
+                lower = stripped.lower()
+                if lower.startswith("entonces ") or lower.startswith("then "):
+                    in_then = True
+                    payload = re.sub(r'^(entonces|then)\s+', '', stripped, flags=re.IGNORECASE)
+                    then_lines.append(payload)
+                elif in_then and re.match(r'^(y|e|and|but)\s', lower):
+                    payload = re.sub(r'^(y|e|and|but)\s+', '', stripped, flags=re.IGNORECASE)
+                    then_lines.append(payload)
+                elif in_then:
+                    break
+            if then_lines:
+                return ". ".join(then_lines) + "."
+
         criterion_lower = criterion.lower()
         
         # Construir resultado basado en el criterio específico
@@ -2765,4 +2947,3 @@ if __name__ == "__main__":
         )
         print(f"   Nota: {tc.automation_hint}")
         print()
-

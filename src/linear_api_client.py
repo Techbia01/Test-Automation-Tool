@@ -327,6 +327,11 @@ class LinearAPIClient:
             return []
         else:
             print(f"[OK] UUID obtenido: {parent_uuid}")
+
+        # Obtener títulos de sub-issues ya existentes para evitar duplicados
+        existing_titles = self.get_sub_issue_titles(parent_uuid)
+        if existing_titles:
+            print(f"[INFO] {len(existing_titles)} sub-issue(s) ya existen en {parent_issue_identifier}; se omitirán duplicados")
         
         manual_name = (label_manual or "TC_Manual").strip()
         auto_name = (label_automatizable or "TC_Automatizable").strip()
@@ -375,6 +380,14 @@ class LinearAPIClient:
 
         for i, test_case in enumerate(test_cases, 1):
             title = test_case.get("title", "Sin titulo")
+
+            # Saltar si ya existe un sub-issue con el mismo título
+            if title.strip().lower() in existing_titles:
+                print(
+                    "[SKIP] Caso %d/%d ya existe: %s..."
+                    % (i, len(test_cases), title[:60])
+                )
+                continue
 
             print(
                 "[INFO] Caso %d/%d: %s - %s..."
@@ -762,6 +775,25 @@ class LinearAPIClient:
             return len(nodes)
         except Exception:
             return 0
+
+    def get_sub_issue_titles(self, parent_uuid: str) -> set:
+        """Retorna el conjunto de títulos (en minúsculas) de los sub-issues existentes."""
+        query = """
+        query($id: String!) {
+            issue(id: $id) {
+                children(first: 250) {
+                    nodes { title }
+                }
+            }
+        }
+        """
+        try:
+            response = self._make_request(query, {"id": parent_uuid})
+            ch = (response.get("data") or {}).get("issue") or {}
+            nodes = (ch.get("children") or {}).get("nodes") or []
+            return {(n.get("title") or "").strip().lower() for n in nodes}
+        except Exception:
+            return set()
 
     def update_issue_state(self, issue_id: str, state_name: str, team_id: str) -> bool:
         """

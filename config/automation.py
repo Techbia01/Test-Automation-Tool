@@ -131,6 +131,9 @@ Si no se definen, Linear API usa por defecto «Manual» y «Automatizable»
 (creación automática en el equipo si no existen).
 """
 
+ANTHROPIC_API_KEY: Optional[str] = _get_env("ANTHROPIC_API_KEY") or _json.get("anthropic_api_key")
+"""API Key de Anthropic para ClaudeQAGenerator. Requerida solo con --engine claude o --engine compare."""
+
 LINEAR_WEBHOOK_SECRET: Optional[str] = _get_env("LINEAR_WEBHOOK_SECRET") or _json.get(
     "linear_webhook_secret"
 )

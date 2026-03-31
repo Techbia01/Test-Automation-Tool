@@ -428,6 +428,67 @@ def fetch_repo_context(
     return "\n\n---\n\n".join(parts)
 
 
+def _extract_pr_number_from_url(url: str) -> Optional[int]:
+    """Extrae el número de PR de una URL de GitHub (…/pull/123)."""
+    m = re.search(r"/pull/(\d+)", url or "", re.IGNORECASE)
+    return int(m.group(1)) if m else None
+
+
+def get_pr_description_from_url(
+    pr_url: str,
+    token: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Consulta la API de GitHub para obtener título + body de un PR.
+    Retorna un texto formateado listo para usarse como user_story_text,
+    o None si el PR no tiene body o no se puede acceder.
+    """
+    slug = github_url_to_owner_repo(pr_url)
+    pr_number = _extract_pr_number_from_url(pr_url)
+    if not slug or not pr_number:
+        return None
+
+    url = f"{GITHUB_API_BASE}/repos/{slug}/pulls/{pr_number}"
+    headers = {"Accept": "application/vnd.github+json"}
+    clean_token = _normalize_github_token(token)
+    if clean_token:
+        headers["Authorization"] = _github_authorization_header(clean_token)
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        title = (data.get("title") or "").strip()
+        body = (data.get("body") or "").strip()
+        if not title and not body:
+            return None
+        parts = []
+        if title:
+            parts.append(f"**PR:** {title}")
+        if body:
+            parts.append(body)
+        return "\n\n".join(parts)
+    except Exception:
+        return None
+
+
+def get_pr_description_from_urls(
+    urls: List[str],
+    token: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Recorre una lista de URLs y retorna la descripción del primer PR
+    de GitHub que tenga contenido.
+    """
+    for url in (urls or []):
+        if "github.com" in (url or "").lower() and "/pull/" in url.lower():
+            desc = get_pr_description_from_url(url, token=token)
+            if desc:
+                return desc
+    return None
+
+
 def get_project_context_for_issue(
     issue_description: str,
     default_repo: Optional[str] = None,

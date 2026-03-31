@@ -29,6 +29,7 @@ from github_context import (
     extract_github_repo_from_text,
     extract_github_repo_from_urls,
     get_project_context_for_issue,
+    get_pr_description_from_urls,
     resolve_github_repo_slug,
 )
 
@@ -36,6 +37,18 @@ from github_context import (
 _MAX_CONTEXT_CHARS = 30000
 from professional_qa_generator import ProfessionalQAGenerator
 from test_case_automation import TestCase as LegacyTestCase, TestType, Priority
+
+# ClaudeQAGenerator: importación diferida para no fallar si anthropic no está instalado
+def _load_claude_generator():
+    try:
+        from claude_qa_generator import ClaudeQAGenerator
+        return ClaudeQAGenerator(api_key=automation_config.ANTHROPIC_API_KEY)
+    except ImportError as e:
+        print("[ERROR] ClaudeQAGenerator no disponible: %s" % e)
+        sys.exit(1)
+    except ValueError as e:
+        print("[ERROR] %s" % e)
+        sys.exit(1)
 
 
 def _convert_professional_to_serializable(professional_cases, project_name: str):
@@ -122,6 +135,7 @@ def process_linear_issue_for_qa(
     client: LinearAPIClient,
     issue: LinearIssueSummary,
     verbose: bool = False,
+    engine: str = "rules",
 ) -> str:
     """
     Genera y sube casos de prueba para un issue. Retorno:
@@ -142,9 +156,6 @@ def process_linear_issue_for_qa(
     state_after = automation_config.LINEAR_STATE_AFTER_SUCCESS
 
     user_story_text = (issue.description or "").strip()
-    if not user_story_text:
-        print("[WARN] Issue sin descripción; se omite.")
-        return "skipped_no_description"
 
     git_ctx = client.get_issue_git_context(issue.id)
     attachment_urls = git_ctx.attachment_urls
@@ -153,6 +164,17 @@ def process_linear_issue_for_qa(
     team_key = None
     if issue.identifier and "-" in issue.identifier:
         team_key = issue.identifier.split("-", 1)[0].strip().upper()
+
+    # Si la descripción está vacía, intentar usar el body del PR adjunto
+    if not user_story_text and attachment_urls:
+        pr_text = get_pr_description_from_urls(attachment_urls, token=gh_token)
+        if pr_text:
+            print("[INFO] Descripción vacía; usando body del PR adjunto como HU.")
+            user_story_text = pr_text
+
+    if not user_story_text:
+        print("[WARN] Issue sin descripción ni PR con contenido; se omite.")
+        return "skipped_no_description"
 
     project_context = get_project_context_for_issue(
         issue.description,
@@ -230,16 +252,50 @@ def process_linear_issue_for_qa(
                 % (issue.identifier, resolved_repo)
             )
 
-    qa_generator = ProfessionalQAGenerator()
-    try:
-        professional_cases = qa_generator.generate_test_cases(
-            user_story_text=user_story_text,
-            project_name=issue.title,
-            project_context=project_context or None,
-            verbose_log=verbose,
-        )
-    except Exception as e:
-        print("[ERROR] Fallo generando casos: %s" % e)
+    # ── Selección de motor ───────────────────────────────────────────────────
+    if engine == "claude":
+        generators = [("Claude AI", _load_claude_generator())]
+    elif engine == "compare":
+        rules_gen = ProfessionalQAGenerator()
+        rules_gen._qa_generation_verbose = verbose
+        generators = [
+            ("Motor de reglas", rules_gen),
+            ("Claude AI", _load_claude_generator()),
+        ]
+    else:  # "rules" (default)
+        rules_gen = ProfessionalQAGenerator()
+        generators = [("Motor de reglas", rules_gen)]
+
+    professional_cases = []
+    for gen_label, gen in generators:
+        if engine == "compare":
+            print("[%s] Generando..." % gen_label)
+        try:
+            cases = gen.generate_test_cases(
+                user_story_text=user_story_text,
+                project_name=issue.title,
+                project_context=project_context or None,
+                verbose_log=verbose,
+            )
+        except Exception as e:
+            print("[ERROR][%s] Fallo generando casos: %s" % (gen_label, e))
+            if engine != "compare":
+                return "error_generation"
+            continue
+
+        if engine == "compare":
+            print("  → %d caso(s) generados por %s" % (len(cases), gen_label))
+            # En modo compare: unir casos de ambos motores (deduplicando por título)
+            seen = {tc.title.strip().lower() for tc in professional_cases}
+            for tc in cases:
+                if tc.title.strip().lower() not in seen:
+                    professional_cases.append(tc)
+                    seen.add(tc.title.strip().lower())
+        else:
+            professional_cases = cases
+
+    if not professional_cases:
+        print("[ERROR] Fallo generando casos.")
         return "error_generation"
 
     if not professional_cases:
@@ -326,7 +382,7 @@ def _print_cases_compact(professional_cases) -> None:
             print("    (%s)" % hint[:120] + ("…" if len(hint) > 120 else ""))
 
 
-def run(verbose: bool = False) -> None:
+def run(verbose: bool = False, engine: str = "rules") -> None:
     api_key = automation_config.LINEAR_API_KEY
     if not api_key:
         print("[ERROR] LINEAR_API_KEY no configurado (variable de entorno o automation_config.json)")
@@ -342,6 +398,7 @@ def run(verbose: bool = False) -> None:
     if verbose:
         print("=" * 80)
         print("[INFO] Automatización Linear + GitHub (modo verbose)")
+        print("       Motor: %s" % engine)
         print("       Estado objetivo: %s" % target_state)
         print("       Estado tras éxito: %s" % (state_after or "(no cambiar)"))
         print("       Repo GitHub por defecto: %s" % (default_repo or "(ninguno)"))
@@ -353,8 +410,8 @@ def run(verbose: bool = False) -> None:
         print("=" * 80)
     else:
         print(
-            "[INFO] Linear → QA | estado: %s | issues (máx. 50)"
-            % target_state
+            "[INFO] Linear → QA | motor: %s | estado: %s | issues (máx. 50)"
+            % (engine, target_state)
         )
 
     client = LinearAPIClient(api_key)
@@ -379,7 +436,7 @@ def run(verbose: bool = False) -> None:
     errors = 0
 
     for issue in issues:
-        out = process_linear_issue_for_qa(client, issue, verbose=verbose)
+        out = process_linear_issue_for_qa(client, issue, verbose=verbose, engine=engine)
         if out == "processed":
             processed += 1
         elif out in ("error_generation", "error_upload"):
@@ -400,7 +457,18 @@ if __name__ == "__main__":
         action="store_true",
         help="Volcar contexto Linear/GitHub completo y detalle de cada caso",
     )
+    parser.add_argument(
+        "--engine",
+        choices=["rules", "claude", "compare"],
+        default="rules",
+        help=(
+            "Motor de generación: "
+            "'rules' = motor de reglas (por defecto), "
+            "'claude' = Claude AI, "
+            "'compare' = ambos (sube la unión de casos)"
+        ),
+    )
     args = parser.parse_args()
     env_v = os.environ.get("AUTOMATION_VERBOSE", "").strip().lower()
     verbose = args.verbose or env_v in ("1", "true", "yes")
-    run(verbose=verbose)
+    run(verbose=verbose, engine=args.engine)
