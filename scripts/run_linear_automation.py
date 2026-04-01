@@ -12,7 +12,6 @@ Ejecutar desde la raíz del proyecto: python3 scripts/run_linear_automation.py
 
 import argparse
 import os
-import re
 import sys
 
 # Raíz del proyecto
@@ -30,75 +29,69 @@ from github_context import (
     extract_github_repo_from_text,
     extract_github_repo_from_urls,
     get_project_context_for_issue,
+    get_pr_description_from_urls,
     resolve_github_repo_slug,
 )
 
 # Límite por bloque para no saturar la terminal (ajustable)
 _MAX_CONTEXT_CHARS = 30000
-from improved_test_generator import ImprovedTestGenerator, ImprovedTestCase
+from professional_qa_generator import ProfessionalQAGenerator
+from test_case_automation import TestCase as LegacyTestCase, TestType, Priority
+
+# ClaudeQAGenerator: importación diferida para no fallar si anthropic no está instalado
+def _load_claude_generator():
+    try:
+        from claude_qa_generator import ClaudeQAGenerator
+        return ClaudeQAGenerator(api_key=automation_config.ANTHROPIC_API_KEY)
+    except ImportError as e:
+        print("[ERROR] ClaudeQAGenerator no disponible: %s" % e)
+        sys.exit(1)
+    except ValueError as e:
+        print("[ERROR] %s" % e)
+        sys.exit(1)
 
 
-def _format_improved_description(tc: ImprovedTestCase) -> str:
-    """Formatea un ImprovedTestCase con la estructura de plantilla acordada."""
-    is_auto = "@automatizable" in tc.tags
-    exec_label = "Automatizable" if is_auto else "Manual"
-
-    # Criterio original (línea de la historia de usuario)
-    criterio_raw = re.sub(r'^(?:Criterio\s+\d+:|Scenario:)\s*', '', tc.scenario or "").strip()
-    if not criterio_raw:
-        criterio_raw = tc.title
-
-    # Precondiciones fijas + específicas del caso
-    base_prec = [
-        "El sistema está operativo y accesible",
-        "El usuario tiene los permisos necesarios",
-        "Los datos de prueba están disponibles",
-    ]
-    extra_prec = [p for p in (tc.preconditions or []) if p not in base_prec]
-    prec_lines = "\n".join(f"- {p}" for p in base_prec + extra_prec)
-
-    # Pasos Gherkin
-    given_str = "\nAnd ".join(tc.given_steps) if tc.given_steps else "el usuario accede al módulo correspondiente"
-    when_str  = "\nAnd ".join(tc.when_steps)  if tc.when_steps  else "el usuario ejecuta la acción"
-    then_str  = "\nAnd ".join(tc.then_steps)  if tc.then_steps  else "el sistema responde correctamente"
-
-    # Resultado esperado como prosa
-    resultado = ". ".join(s.rstrip(".") for s in (tc.then_steps or []))
-    resultado = f"{resultado}. No se presentan errores en el proceso. La interfaz responde correctamente."
-
-    return (
-        f"Ejecución sugerida: {exec_label}\n"
-        f"Nota:\n\n"
-        f"Objetivo: {tc.title}\n"
-        f"Criterio de aceptación: {criterio_raw}\n\n"
-        f"Tipo: {tc.test_type.capitalize()}\n"
-        f"Prioridad: {tc.priority.capitalize()}\n\n"
-        f"Precondiciones:\n{prec_lines}\n\n"
-        f"Pasos (lenguaje Gherkin):\n\n"
-        f"Given que {given_str}\n"
-        f"When {when_str}\n"
-        f"Then {then_str}\n\n"
-        f"Resultado Esperado:\n{resultado}"
-    )
-
-
-def _convert_improved_to_serializable(cases: list, project_name: str) -> list:
-    """Convierte ImprovedTestCase al formato dict esperado por LinearAPIClient."""
+def _convert_professional_to_serializable(professional_cases, project_name: str):
+    """Convierte casos del generador profesional al formato dict para Linear."""
+    type_map = {
+        "Funcional": TestType.FUNCTIONAL,
+        "Negativo": TestType.NEGATIVE,
+        "Integración": TestType.INTEGRATION,
+        "Regresión": TestType.FUNCTIONAL,
+        "UI": TestType.FUNCTIONAL,
+    }
+    priority_map = {
+        "Alta": Priority.HIGH,
+        "Media": Priority.MEDIUM,
+        "Baja": Priority.LOW,
+    }
     result = []
-    for tc in cases:
-        is_auto = "@automatizable" in tc.tags
+    for prof_case in professional_cases:
+        full_description = prof_case._format_description()
+        tc = LegacyTestCase(
+            id=prof_case.id,
+            title=prof_case.title,
+            description=full_description,
+            preconditions=prof_case.preconditions,
+            steps=prof_case.steps,
+            expected_result=prof_case.expected_result,
+            test_type=type_map.get(prof_case.test_type.value, TestType.FUNCTIONAL),
+            priority=priority_map.get(prof_case.priority.value, Priority.HIGH),
+            user_story=project_name,
+            tags=["@qa", "@automated"],
+        )
         result.append({
             "test_case_id": tc.id,
             "title": tc.title,
-            "description": _format_improved_description(tc),
+            "description": tc.description,
             "linear_description_is_complete": True,
-            "preconditions": tc.given_steps,
-            "steps": tc.when_steps,
-            "expected_result": "\n".join(tc.then_steps),
-            "priority": tc.priority.capitalize(),
-            "type": tc.test_type.capitalize(),
-            "execution_suitability": "Automatizable" if is_auto else "Manual",
-            "automation_hint": "",
+            "preconditions": tc.preconditions,
+            "steps": tc.steps,
+            "expected_result": tc.expected_result,
+            "priority": tc.priority.value if hasattr(tc.priority, "value") else str(tc.priority),
+            "type": tc.test_type.value if hasattr(tc.test_type, "value") else str(tc.test_type),
+            "execution_suitability": prof_case.execution_suitability.value,
+            "automation_hint": prof_case.automation_hint,
         })
     return result
 
@@ -132,8 +125,8 @@ def _repo_origin_label(
     return "no determinado"
 
 
-def _exec_tag(tc) -> str:
-    if "@automatizable" in getattr(tc, "tags", []):
+def _exec_tag(pc) -> str:
+    if pc.execution_suitability.value == "Automatizable":
         return "[AUTO]"
     return "[MANUAL]"
 
@@ -142,6 +135,7 @@ def process_linear_issue_for_qa(
     client: LinearAPIClient,
     issue: LinearIssueSummary,
     verbose: bool = False,
+    engine: str = "rules",
 ) -> str:
     """
     Genera y sube casos de prueba para un issue. Retorno:
@@ -162,9 +156,6 @@ def process_linear_issue_for_qa(
     state_after = automation_config.LINEAR_STATE_AFTER_SUCCESS
 
     user_story_text = (issue.description or "").strip()
-    if not user_story_text:
-        print("[WARN] Issue sin descripción; se omite.")
-        return "skipped_no_description"
 
     git_ctx = client.get_issue_git_context(issue.id)
     attachment_urls = git_ctx.attachment_urls
@@ -173,6 +164,17 @@ def process_linear_issue_for_qa(
     team_key = None
     if issue.identifier and "-" in issue.identifier:
         team_key = issue.identifier.split("-", 1)[0].strip().upper()
+
+    # Si la descripción está vacía, intentar usar el body del PR adjunto
+    if not user_story_text and attachment_urls:
+        pr_text = get_pr_description_from_urls(attachment_urls, token=gh_token)
+        if pr_text:
+            print("[INFO] Descripción vacía; usando body del PR adjunto como HU.")
+            user_story_text = pr_text
+
+    if not user_story_text:
+        print("[WARN] Issue sin descripción ni PR con contenido; se omite.")
+        return "skipped_no_description"
 
     project_context = get_project_context_for_issue(
         issue.description,
@@ -250,15 +252,44 @@ def process_linear_issue_for_qa(
                 % (issue.identifier, resolved_repo)
             )
 
-    try:
-        gen = ImprovedTestGenerator()
-        cases = gen.generate_from_text(user_story_text)
-    except Exception as e:
-        print("[ERROR] Fallo generando casos: %s" % e)
-        
-        return "error_generation"
+    # ── Selección de motor ───────────────────────────────────────────────────
+    professional_cases = []
 
-    if not cases:
+    if engine == "rules":
+        rules_gen = ProfessionalQAGenerator()
+        rules_gen._qa_generation_verbose = verbose
+        professional_cases = _run_generator("Motor de reglas", rules_gen, issue, user_story_text, project_context, verbose)
+
+    elif engine == "claude":
+        professional_cases = _run_generator("Claude AI", _load_claude_generator(), issue, user_story_text, project_context, verbose)
+
+    elif engine == "compare":
+        rules_gen = ProfessionalQAGenerator()
+        rules_gen._qa_generation_verbose = verbose
+        for label, gen in [("Motor de reglas", rules_gen), ("Claude AI", _load_claude_generator())]:
+            print("[%s] Generando..." % label)
+            cases = _run_generator(label, gen, issue, user_story_text, project_context, verbose)
+            seen = {tc.title.strip().lower() for tc in professional_cases}
+            for tc in cases:
+                if tc.title.strip().lower() not in seen:
+                    professional_cases.append(tc)
+                    seen.add(tc.title.strip().lower())
+            print("  → %d caso(s) generados por %s" % (len(cases), label))
+
+    else:  # "auto" (default): Claude con fallback al motor de reglas
+        print("[INFO] Motor: Claude AI (con fallback a motor de reglas)")
+        try:
+            professional_cases = _run_generator("Claude AI", _load_claude_generator(), issue, user_story_text, project_context, verbose)
+        except SystemExit:
+            # _load_claude_generator hace sys.exit si no hay API key
+            professional_cases = []
+        if not professional_cases:
+            print("[WARN] Claude AI no generó casos; usando motor de reglas como fallback.")
+            rules_gen = ProfessionalQAGenerator()
+            rules_gen._qa_generation_verbose = verbose
+            professional_cases = _run_generator("Motor de reglas (fallback)", rules_gen, issue, user_story_text, project_context, verbose)
+
+    if not professional_cases:
         print("[WARN] No se generaron casos para este issue.")
         return "skipped_no_cases"
 
@@ -267,26 +298,43 @@ def process_linear_issue_for_qa(
         print("Repo: %s" % (resolved_repo or "(sin repo)"))
         print("Código: %s" % issue.identifier)
         print("Issue: %s" % issue.title)
-        _print_cases_compact(cases)
+        _print_cases_compact(professional_cases)
         print("")
     else:
         print("=" * 72)
-        print(" CASOS GENERADOS — %d — %s" % (len(cases), issue.identifier))
+        print(
+            " CASOS GENERADOS — %d — %s"
+            % (len(professional_cases), issue.identifier)
+        )
         print("=" * 72)
-        for i, tc in enumerate(cases, 1):
-            print("\n--- Caso %d / %d — %s ---" % (i, len(cases), tc.id))
-            print("Título: %s" % tc.title)
-            print("Tipo: %s | Prioridad: %s" % (tc.test_type, tc.priority))
-            print("Given:")
-            for s in tc.given_steps: print("  • %s" % s)
-            print("When:")
-            for s in tc.when_steps:  print("  • %s" % s)
-            print("Then:")
-            for s in tc.then_steps:  print("  • %s" % s)
-            print("Tags: %s" % " ".join(tc.tags))
+        for i, pc in enumerate(professional_cases, 1):
+            print(
+                "\n--- Caso %d / %d — %s ---"
+                % (i, len(professional_cases), pc.id)
+            )
+            print("Título: %s" % pc.title)
+            print(
+                "Tipo: %s | Prioridad: %s"
+                % (pc.test_type.value, pc.priority.value)
+            )
+            print("Criterio: %s" % _trunc_block(pc.criterion or "", 2000))
+            print("Precondiciones:")
+            for p in pc.preconditions or []:
+                print("  • %s" % p)
+            print("Pasos:")
+            for s in pc.steps or []:
+                print("  %s" % s)
+            print("Resultado esperado:\n  %s" % (pc.expected_result or ""))
+            print(
+                "Ejecución sugerida: %s — %s"
+                % (
+                    pc.execution_suitability.value,
+                    pc.automation_hint or "—",
+                )
+            )
         print("\n" + "=" * 72 + "\n")
 
-    formatted = _convert_improved_to_serializable(cases, issue.title)
+    formatted = _convert_professional_to_serializable(professional_cases, issue.title)
     created = client.upload_test_cases_as_subissues(
         parent_issue_identifier=issue.identifier,
         test_cases=formatted,
@@ -307,21 +355,59 @@ def process_linear_issue_for_qa(
     return "error_upload"
 
 
-def _print_cases_compact(cases) -> None:
-    """Lista casos: id, título, tipo, pasos When/Then (truncados)."""
-    print("Casos generados (%d):" % len(cases))
-    for tc in cases:
-        print("  • %s %s — %s  [%s | %s]"
-              % (_exec_tag(tc), tc.id, tc.title, tc.test_type, tc.priority))
-        when = " / ".join(tc.when_steps)[:120]
-        if when:
-            print("    When: %s" % when)
-        then = " / ".join(tc.then_steps)[:120]
-        if then:
-            print("    Then: %s" % then)
+def _run_generator(label, gen, issue, user_story_text, project_context, verbose):
+    """Ejecuta un generador y retorna los casos. Lista vacía si falla."""
+    try:
+        return gen.generate_test_cases(
+            user_story_text=user_story_text,
+            project_name=issue.title,
+            project_context=project_context or None,
+            verbose_log=verbose,
+        )
+    except Exception as e:
+        print("[ERROR][%s] Fallo generando casos: %s" % (label, e))
+        return []
 
 
-def run(verbose: bool = False) -> None:
+def _print_cases_compact(professional_cases) -> None:
+    """Lista casos: id, título, ejecución sugerida, resultado (truncado)."""
+    print("Casos generados (%d):" % len(professional_cases))
+    for pc in professional_cases:
+        print(
+            "  • %s %s — %s"
+            % (_exec_tag(pc), pc.id, pc.title)
+        )
+        exp = (pc.expected_result or "").replace("\n", " ").strip()
+        if len(exp) > 280:
+            exp = exp[:280] + "…"
+        if exp:
+            print("    → %s" % exp)
+        hint = (pc.automation_hint or "").strip()
+        if hint:
+            print("    (%s)" % hint[:120] + ("…" if len(hint) > 120 else ""))
+
+
+def run_single_issue(issue_id: str, verbose: bool = False, engine: str = "auto") -> str:
+    """
+    Procesa un único issue Linear por UUID (usado desde webhooks).
+    Retorna el mismo código de resultado que process_linear_issue_for_qa().
+    """
+    api_key = automation_config.LINEAR_API_KEY
+    if not api_key:
+        print("[ERROR] LINEAR_API_KEY no configurado")
+        sys.exit(1)
+
+    client = LinearAPIClient(api_key)
+    issue = client.get_issue_summary_by_uuid(issue_id)
+    if not issue:
+        print("[ERROR] No se pudo obtener el issue con id: %s" % issue_id)
+        return "error_not_found"
+
+    print("[INFO] Procesando issue individual: %s — %s" % (issue.identifier, issue.title[:60]))
+    return process_linear_issue_for_qa(client, issue, verbose=verbose, engine=engine)
+
+
+def run(verbose: bool = False, engine: str = "rules") -> None:
     api_key = automation_config.LINEAR_API_KEY
     if not api_key:
         print("[ERROR] LINEAR_API_KEY no configurado (variable de entorno o automation_config.json)")
@@ -337,6 +423,7 @@ def run(verbose: bool = False) -> None:
     if verbose:
         print("=" * 80)
         print("[INFO] Automatización Linear + GitHub (modo verbose)")
+        print("       Motor: %s" % engine)
         print("       Estado objetivo: %s" % target_state)
         print("       Estado tras éxito: %s" % (state_after or "(no cambiar)"))
         print("       Repo GitHub por defecto: %s" % (default_repo or "(ninguno)"))
@@ -347,9 +434,15 @@ def run(verbose: bool = False) -> None:
             )
         print("=" * 80)
     else:
+        engine_label = {
+            "auto": "Claude AI + fallback reglas",
+            "claude": "Claude AI",
+            "rules": "Motor de reglas",
+            "compare": "Ambos (unión)",
+        }.get(engine, engine)
         print(
-            "[INFO] Linear → QA | estado: %s | issues (máx. 50)"
-            % target_state
+            "[INFO] Linear → QA | motor: %s | estado: %s | issues (máx. 50)"
+            % (engine_label, target_state)
         )
 
     client = LinearAPIClient(api_key)
@@ -374,7 +467,7 @@ def run(verbose: bool = False) -> None:
     errors = 0
 
     for issue in issues:
-        out = process_linear_issue_for_qa(client, issue, verbose=verbose)
+        out = process_linear_issue_for_qa(client, issue, verbose=verbose, engine=engine)
         if out == "processed":
             processed += 1
         elif out in ("error_generation", "error_upload"):
@@ -395,7 +488,19 @@ if __name__ == "__main__":
         action="store_true",
         help="Volcar contexto Linear/GitHub completo y detalle de cada caso",
     )
+    parser.add_argument(
+        "--engine",
+        choices=["auto", "rules", "claude", "compare"],
+        default="auto",
+        help=(
+            "Motor de generación: "
+            "'auto' = Claude AI con fallback a motor de reglas (por defecto), "
+            "'rules' = solo motor de reglas, "
+            "'claude' = solo Claude AI, "
+            "'compare' = ambos (sube la unión de casos)"
+        ),
+    )
     args = parser.parse_args()
     env_v = os.environ.get("AUTOMATION_VERBOSE", "").strip().lower()
     verbose = args.verbose or env_v in ("1", "true", "yes")
-    run(verbose=verbose)
+    run(verbose=verbose, engine=args.engine)
